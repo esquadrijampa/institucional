@@ -136,7 +136,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
           <div className="hidden sm:flex items-center">
             <button
               onClick={() => handleNavigate(ActivePage.Contato)}
-              className="bg-brand-chumbo text-white px-6 py-2.5 rounded-sm font-sans text-xs font-semibold uppercase tracking-wider hover:bg-brand-charcoal transition-all duration-300 shadow-sm border border-transparent hover:border-brand-orange"
+              className="bg-brand-orange text-white px-6 py-2.5 rounded-sm font-sans text-xs font-semibold uppercase tracking-wider hover:bg-brand-orange-hover transition-all duration-300 shadow-sm border border-transparent"
               id="nav-budget-btn"
             >
               Orçamento
@@ -222,7 +222,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
           <div className="pt-4 border-t border-brand-gray-mid flex flex-col">
             <button
               onClick={() => handleNavigate(ActivePage.Contato)}
-              className="w-full text-center bg-brand-chumbo text-white py-3.5 rounded-sm font-sans text-sm font-semibold uppercase tracking-wider hover:bg-brand-charcoal transition-colors"
+              className="w-full text-center bg-brand-orange text-white py-3.5 rounded-sm font-sans text-sm font-semibold uppercase tracking-wider hover:bg-brand-orange-hover transition-colors"
               id="nav-mobile-budget"
             >
               Solicitar Orçamento

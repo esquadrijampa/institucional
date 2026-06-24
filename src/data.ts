@@ -5,12 +5,18 @@
 
 import { ActivePage, PortfolioItem } from './types';
 
+// Import images as ES Modules so Vite compiles and resolves them correctly in production
+import heroImg from './assets/images/esquadrijampa_hero_1782316069562.jpg';
+import peleDeVidroImg from './assets/images/pele_de_vidro_facade_1782316085953.jpg';
+import fachadaAcmImg from './assets/images/fachada_acm_panels_1782316100638.jpg';
+import brisesRipadosImg from './assets/images/brises_ripados_detail_1782316117290.jpg';
+
 // Image paths from generated assets
 export const IMAGES = {
-  hero: '/src/assets/images/esquadrijampa_hero_1782316069562.jpg',
-  peleDeVidro: '/src/assets/images/pele_de_vidro_facade_1782316085953.jpg',
-  fachadaAcm: '/src/assets/images/fachada_acm_panels_1782316100638.jpg',
-  brisesRipados: '/src/assets/images/brises_ripados_detail_1782316117290.jpg',
+  hero: heroImg,
+  peleDeVidro: peleDeVidroImg,
+  fachadaAcm: fachadaAcmImg,
+  brisesRipados: brisesRipadosImg,
   // Curated Unsplash images for additional context
   vidros: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
   boxVidro: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
