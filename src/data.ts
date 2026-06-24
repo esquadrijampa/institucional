@@ -11,7 +11,7 @@ import peleDeVidroImg from './assets/images/pele_de_vidro_facade_1782316085953.j
 import fachadaAcmImg from './assets/images/fachada_acm_panels_1782316100638.jpg';
 import brisesRipadosImg from './assets/images/brises_ripados_detail_1782316117290.jpg';
 
-import janelaCorrerImg from './assets/images/janela_correr_1782328624428.jpg';
+import janelaCorrerImg from './assets/images/janelas_correr_only_1782331257093.jpg';
 import janelaMaximArImg from './assets/images/janela_maxim_ar_1782328634262.jpg';
 import ventilacaoPermanenteImg from './assets/images/ventilacao_permanente_1782330692485.jpg';
 import portaCorrerImg from './assets/images/porta_correr_1782328657047.jpg';

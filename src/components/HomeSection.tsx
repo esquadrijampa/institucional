@@ -30,7 +30,7 @@ export default function HomeSection({ setActivePage }: HomeSectionProps) {
   return (
     <div className="page-enter">
       {/* Hero Section */}
-      <section className="relative h-[85vh] flex items-center justify-center overflow-hidden bg-brand-charcoal text-white" id="home-hero">
+      <section className="relative min-h-[90vh] py-20 flex items-center justify-center overflow-hidden bg-brand-charcoal text-white" id="home-hero">
         <div className="absolute inset-0 z-0">
           <img
             src={IMAGES.hero}
@@ -41,7 +41,7 @@ export default function HomeSection({ setActivePage }: HomeSectionProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-brand-charcoal via-brand-charcoal/40 to-transparent" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center pt-16 sm:pt-24">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
