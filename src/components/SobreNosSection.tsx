@@ -90,7 +90,7 @@ export default function SobreNosSection() {
               Nossos Pilares de Atuação
             </h3>
             <p className="mt-2 font-display text-2xl font-bold tracking-tight text-brand-charcoal">
-              Valores que Direcionam Nossa Serralheria
+              Valores que são nosso combustível, sem ele não existimos
             </p>
           </div>
 

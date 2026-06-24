@@ -18,19 +18,19 @@ export default function EsquadriasSection({ setActivePage }: EsquadriasSectionPr
       title: 'Janela de Correr',
       desc: 'Versão extremamente versátil de 2, 3, 4, 5 ou 6 folhas de correr. Pode ser fabricada com ou sem bandeira superior (para maior entrada de luz) e com ou sem peitoril inferior (para proteção estrutural).',
       features: ['2 a 6 folhas móveis ou fixas', 'Opção com bandeira integrada', 'Opção com peitoril de proteção', 'Excelente vedação acústica'],
-      image: IMAGES.hero,
+      image: IMAGES.janelaCorrer,
     },
     {
       title: 'Maxim-Ar',
       desc: 'Ideal para banheiros, cozinhas e áreas de circulação. Oferece ventilação controlada através do basculamento projetante. Pode conter peitoril inferior, bandeira superior ou ambos integrados.',
-      features: ['Fácil higienização e manutenção', 'Abertura de até 90 graus', 'Com ou sem peitoril/bandeira', 'Estrutura leve e estanque'],
-      image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+      features: ['Fácil higienização e manutenção', 'Abertura de até 45 graus', 'Com ou sem peitoril/bandeira', 'Estrutura leve e estanque'],
+      image: IMAGES.janelaMaximAr,
     },
     {
       title: 'Boca de Lobo',
       desc: 'Solução técnica de ventilação sob medida para áreas que exigem fluxo constante de ar e privacidade visual, como garagens residenciais, depósitos e casas de máquinas.',
       features: ['Ventilação permanente', 'Proteção contra entrada de chuva', 'Ideal para áreas técnicas', 'Perfis de alumínio de alta resistência'],
-      image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+      image: IMAGES.janelaBocaLobo,
     },
   ];
 
@@ -39,19 +39,19 @@ export default function EsquadriasSection({ setActivePage }: EsquadriasSectionPr
       title: 'Porta de Correr',
       desc: 'Portas de correr panorâmicas com 2, 3, 4, 5 ou 6 folhas móveis. Criam vãos amplos integrando a sala com a área gourmet. Podem conter travessa de reforço ou bandeira superior.',
       features: ['Até 6 folhas integradas', 'Trilhos embutidos no piso', 'Opção de vidro duplo térmico', 'Movimentação suave com roldanas premium'],
-      image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+      image: IMAGES.portaCorrer,
     },
     {
       title: 'Porta de Giro',
       desc: 'Disponível em veneziana fechada (privacidade total), lambri de alumínio (estética robusta e moderna) ou vidro temperado (transparência elegante). Ideal para entradas principais e áreas de serviço.',
       features: ['Fechamento pivotante ou convencional', 'Venezianas ventiladas ou cegas', 'Lambri duplo com excelente isolamento', 'Opção de fechadura eletrônica'],
-      image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
+      image: IMAGES.portaGiroLambri,
     },
     {
       title: 'Porta Camarão',
       desc: 'Porta articulada dobrável que otimiza 100% da área do vão livre. Excelente para divisórias internas de ambientes, lavabos ou conexões compactas.',
       features: ['Abertura articulada de alto ganho de espaço', 'Dobradiças reforçadas ocultas', 'Ideal para vãos menores ou divisões', 'Funcionamento leve e silencioso'],
-      image: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
+      image: IMAGES.portaCamarao,
     },
   ];
 

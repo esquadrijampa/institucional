@@ -11,17 +11,32 @@ import peleDeVidroImg from './assets/images/pele_de_vidro_facade_1782316085953.j
 import fachadaAcmImg from './assets/images/fachada_acm_panels_1782316100638.jpg';
 import brisesRipadosImg from './assets/images/brises_ripados_detail_1782316117290.jpg';
 
+import janelaCorrerImg from './assets/images/janela_correr_1782328624428.jpg';
+import janelaMaximArImg from './assets/images/janela_maxim_ar_1782328634262.jpg';
+import janelaBocaLoboImg from './assets/images/janela_boca_lobo_1782328647430.jpg';
+import portaCorrerImg from './assets/images/porta_correr_1782328657047.jpg';
+import portaGiroLambriImg from './assets/images/porta_giro_lambri_1782328674994.jpg';
+import portaCamaraoImg from './assets/images/porta_camarao_1782328685388.jpg';
+import guardaCorpoVidroImg from './assets/images/guarda_corpo_vidro_1782328699427.jpg';
+
 // Image paths from generated assets
 export const IMAGES = {
   hero: heroImg,
   peleDeVidro: peleDeVidroImg,
   fachadaAcm: fachadaAcmImg,
   brisesRipados: brisesRipadosImg,
+  janelaCorrer: janelaCorrerImg,
+  janelaMaximAr: janelaMaximArImg,
+  janelaBocaLobo: janelaBocaLoboImg,
+  portaCorrer: portaCorrerImg,
+  portaGiroLambri: portaGiroLambriImg,
+  portaCamarao: portaCamaraoImg,
+  guardaCorpoVidro: guardaCorpoVidroImg,
   // Curated Unsplash images for additional context
   vidros: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
   boxVidro: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
-  guardaCorpo: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
-  portaDeGiroVidro: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+  guardaCorpo: guardaCorpoVidroImg,
+  portaDeGiroVidro: portaGiroLambriImg,
 };
 
 export const DIFFERENTIALS = [
@@ -34,7 +49,7 @@ export const DIFFERENTIALS = [
   {
     id: 'sistemas',
     title: 'Sistemas Premium',
-    description: 'Trabalhamos com os melhores sistemistas do mercado de esquadrias, com perfis em bitolas de 20mm, 25mm e 32mm para alto desempenho.',
+    description: 'Trabalhamos com as melhores linhas de esquadrias de alumínio do mercado e ajudamos você a escolher a opção ideal para o seu projeto, garantindo beleza, segurança, durabilidade e o melhor custo-benefício.',
     iconName: 'Shield',
   },
   {
@@ -51,14 +66,14 @@ export const HIGHLIGHT_SERVICES = [
     title: 'Janelas de Correr',
     description: 'De 2 a 6 folhas, com ou sem bandeira, oferecendo alta luminosidade e ventilação ideal.',
     page: ActivePage.Esquadrias,
-    image: IMAGES.hero,
+    image: IMAGES.janelaCorrer,
   },
   {
     id: 'portas',
     title: 'Portas de Correr e Giro',
     description: 'Portas de correr panorâmicas, camarão e portas de giro em veneziana ou lambri.',
     page: ActivePage.Esquadrias,
-    image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+    image: IMAGES.portaCorrer,
   },
   {
     id: 'pele-vidro',
@@ -184,9 +199,9 @@ export const ABOUT_TEXT = {
 };
 
 export const CONTACT_INFO = {
-  whatsapp: '5583999999999', // Placeholder WhatsApp número (DDD 83 é João Pessoa - "Esquadrijampa")
-  phone: '(83) 99999-9999',
-  email: 'mktesquadrijampa@gmail.com', // Explicit user email from metadata! Perfect match.
-  address: 'Av. Governador Flávio Ribeiro Coutinho, 500 - Manaíra, João Pessoa - PB, 58037-005',
-  mapEmbedUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3959.2562137604587!2d-34.83537232402434!3d-7.096277069566367!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7ace8123067f93b%3A0xe549df9cfa902162!2sMana%C3%ADra%20Shopping!5e0!3m2!1spt-BR!2sbr!4v1700000000000!5m2!1spt-BR!2sbr',
+  whatsapp: '558393233500',
+  phone: '+55 (83) 9323-3500',
+  email: 'sacesquadrijampa@gmail.com',
+  address: 'Rua Adalberto Florentino de Castro, 128 - Valentina, João Pessoa - PB, 58064-070',
+  mapEmbedUrl: 'https://maps.google.com/maps?q=Rua%20Adalberto%20Florentino%20de%20Castro%20128,%20Valentina,%20Joao%20Pessoa%20PB&t=&z=16&ie=UTF8&iwloc=&output=embed',
 };
