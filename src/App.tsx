@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Phone } from 'lucide-react';
 import { ActivePage } from './types';
@@ -23,6 +23,19 @@ import ContatoSection from './components/ContatoSection';
 
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>(ActivePage.Home);
+
+  // Prevent browser scroll restoration and force scroll to top on mount
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Force scroll to top on section transitions
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activePage]);
 
   const renderSection = () => {
     switch (activePage) {
