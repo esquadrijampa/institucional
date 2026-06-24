@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom palette colors */
+  --color-brand-charcoal: #1C1C1C;
+  --color-brand-chumbo: #2D2D2D;
+  --color-brand-orange: #E05A1F;
+  --color-brand-orange-hover: #C2450F;
+  --color-brand-gray-light: #F5F5F5;
+  --color-brand-gray-mid: #E5E5E5;
+}
+
+/* Custom scrollbar and utilities */
+html {
+  scroll-behavior: smooth;
+  font-family: var(--font-sans);
+}
+
+body {
+  background-color: #FFFFFF;
+  color: var(--color-brand-charcoal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Page fade transitions */
+.page-enter {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
