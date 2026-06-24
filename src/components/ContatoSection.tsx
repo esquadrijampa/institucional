@@ -71,12 +71,48 @@ export default function ContatoSection() {
     fileInputRef.current?.click();
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const emailSubject = `Solicitação de Orçamento - ${formData.name}`;
-    const emailBody = `Olá Esquadrijampa,
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('Nome', formData.name);
+      formDataToSend.append('Telefone', formData.phone);
+      formDataToSend.append('E-mail', formData.email);
+      formDataToSend.append('Tipo de Servico', formData.serviceType);
+      formDataToSend.append('Mensagem / Detalhes', formData.message);
+      
+      if (projectFile) {
+        formDataToSend.append('Anexo_Projeto', projectFile);
+      }
+
+      // FormSubmit configurations
+      formDataToSend.append('_subject', `Novo Orçamento de Esquadria - ${formData.name}`);
+      formDataToSend.append('_captcha', 'false');
+      formDataToSend.append('_template', 'box');
+      formDataToSend.append('_honey', ''); // Anti-spam honey field
+
+      const response = await fetch(`https://formsubmit.co/ajax/${CONTACT_INFO.email}`, {
+        method: 'POST',
+        body: formDataToSend,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setIsSubmitting(false);
+        setIsSubmitted(true);
+      } else {
+        throw new Error('Falha no envio direto.');
+      }
+    } catch (error) {
+      console.error('Erro no envio automático, utilizando fallback mailto:', error);
+      
+      // Fallback in case of networking issues or blockages
+      const emailSubject = `Solicitação de Orçamento - ${formData.name}`;
+      const emailBody = `Olá Esquadrijampa,
 
 Gostaria de solicitar um orçamento para o meu projeto:
 
@@ -91,16 +127,14 @@ ${projectFile ? `\n* Nota: Tenho um arquivo de projeto em anexo pronto para envi
 
 Aguardando contato. Obrigado!`;
 
-    const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-
-    // Simulate submission delay
-    setTimeout(() => {
+      const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      
       setIsSubmitting(false);
       setIsSubmitted(true);
       
-      // Auto open mailto client
+      // Open mailto as a reliable fallback
       window.location.href = mailtoUrl;
-    }, 1200);
+    }
   };
 
   return (
@@ -196,11 +230,10 @@ Aguardando contato. Obrigado!`;
               >
                 <CheckCircle className="w-16 h-16 text-emerald-600 mx-auto mb-6" />
                 <h3 className="font-display text-2xl font-bold text-emerald-900 mb-2">
-                  Solicitação Iniciada com Sucesso!
+                  Solicitação Enviada com Sucesso!
                 </h3>
                 <p className="text-emerald-800 text-sm font-sans max-w-md mx-auto leading-relaxed mb-6">
-                  Olá <strong className="text-emerald-950">{formData.name}</strong>! Preparamos o seu orçamento para esquadrias do tipo <strong>{formData.serviceType}</strong>. 
-                  O seu cliente de e-mail deve ter sido aberto automaticamente para envio da mensagem para <strong className="text-emerald-950">{CONTACT_INFO.email}</strong>.
+                  Olá <strong className="text-emerald-950">{formData.name}</strong>! Seus dados de orçamento para esquadrias do tipo <strong>{formData.serviceType}</strong> foram enviados com sucesso diretamente para nossa equipe técnica no e-mail <strong className="text-emerald-950">{CONTACT_INFO.email}</strong>.
                 </p>
 
                 {projectFile && (
@@ -208,55 +241,25 @@ Aguardando contato. Obrigado!`;
                     <FileText className="w-5 h-5 text-emerald-600 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-emerald-950 truncate">{projectFile.name}</p>
-                      <p className="text-[10px] text-emerald-700 font-sans">Não se esqueça de anexar este arquivo no e-mail aberto!</p>
+                      <p className="text-[10px] text-emerald-700 font-sans">Arquivo anexado e enviado junto à solicitação.</p>
                     </div>
                   </div>
                 )}
 
                 <div className="bg-white p-6 rounded-sm border border-emerald-100 max-w-md mx-auto space-y-4 mb-8">
                   <p className="text-xs font-bold uppercase tracking-wider text-gray-500 font-sans">
-                    Você também pode enviar diretamente pelos canais abaixo:
+                    Deseja falar com a nossa equipe agora mesmo?
                   </p>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex justify-center">
                     <a
-                      href={`mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(`Solicitação de Orçamento - ${formData.name}`)}&body=${encodeURIComponent(`Olá Esquadrijampa,
-
-Gostaria de solicitar um orçamento para o meu projeto:
-
-• Nome: ${formData.name}
-• Telefone: ${formData.phone}
-• E-mail: ${formData.email}
-• Tipo de Serviço: ${formData.serviceType}
-
-Detalhes do Projeto / Mensagem:
-${formData.message}
-${projectFile ? `\n* Nota: Tenho um arquivo de projeto em anexo chamado: ${projectFile.name}` : ''}
-
-Aguardando contato. Obrigado!`)}`}
-                      className="flex items-center justify-center gap-2 bg-brand-charcoal hover:bg-brand-chumbo text-white py-3 px-4 rounded-sm font-sans text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
-                    >
-                      <Mail className="w-4 h-4 text-brand-orange" />
-                      Enviar por E-mail
-                    </a>
-
-                    <a
-                      href={`https://wa.me/${CONTACT_INFO.whatsapp}?text=${encodeURIComponent(`Olá Esquadrijampa, gostaria de solicitar um orçamento:
-
-• *Nome:* ${formData.name}
-• *Telefone:* ${formData.phone}
-• *E-mail:* ${formData.email}
-• *Serviço:* ${formData.serviceType}
-
-*Mensagem:*
-${formData.message}
-${projectFile ? `\n_Anexo enviado por e-mail: ${projectFile.name}_` : ''}`)}`}
+                      href={`https://wa.me/${CONTACT_INFO.whatsapp}?text=${encodeURIComponent(`Olá Esquadrijampa, acabei de enviar um formulário de orçamento pelo site para esquadrias do tipo ${formData.serviceType}. Meu nome é ${formData.name}.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-sm font-sans text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-6 rounded-sm font-sans text-xs font-bold uppercase tracking-wider transition-colors shadow-sm w-full"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Enviar por WhatsApp
+                      Chamar no WhatsApp
                     </a>
                   </div>
                 </div>

@@ -32,8 +32,41 @@ export default function App() {
     window.scrollTo(0, 0);
   }, []);
 
-  // Force scroll to top on section transitions
+  // Synchronize hash with activePage state
   useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').toLowerCase();
+      const matchedPage = Object.values(ActivePage).find(
+        (page) => page.toLowerCase() === hash
+      );
+      if (matchedPage) {
+        setActivePage(matchedPage);
+      } else if (!hash || hash === '') {
+        setActivePage(ActivePage.Home);
+      }
+    };
+
+    // Run on initial load
+    handleHashChange();
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
+
+  // Update hash when activePage changes and force scroll to top
+  useEffect(() => {
+    const currentHash = window.location.hash.replace('#', '').toLowerCase();
+    if (activePage === ActivePage.Home) {
+      if (currentHash !== '') {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } else {
+      if (currentHash !== activePage.toLowerCase()) {
+        window.history.pushState(null, '', `#${activePage}`);
+      }
+    }
     window.scrollTo(0, 0);
   }, [activePage]);
 
