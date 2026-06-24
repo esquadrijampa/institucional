@@ -27,10 +27,10 @@ export default function EsquadriasSection({ setActivePage }: EsquadriasSectionPr
       image: IMAGES.janelaMaximAr,
     },
     {
-      title: 'Boca de Lobo',
+      title: 'Ventilação Permanente',
       desc: 'Solução técnica de ventilação sob medida para áreas que exigem fluxo constante de ar e privacidade visual, como garagens residenciais, depósitos e casas de máquinas.',
       features: ['Ventilação permanente', 'Proteção contra entrada de chuva', 'Ideal para áreas técnicas', 'Perfis de alumínio de alta resistência'],
-      image: IMAGES.janelaBocaLobo,
+      image: IMAGES.ventilacaoPermanente,
     },
   ];
 

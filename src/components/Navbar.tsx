@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-import { Menu, X, MessageSquare, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { ActivePage } from '../types';
-import { CONTACT_INFO } from '../data';
 import logoImg from '../assets/images/logo.png';
 
 interface NavbarProps {
@@ -16,8 +15,17 @@ interface NavbarProps {
 
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  // Main high-level pages, excluding specific services because they're in the dropdown now
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 15);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const menuItems = [
     { label: 'Início', page: ActivePage.Home },
     { label: 'Projetos', page: ActivePage.Portfolio },
@@ -38,8 +46,57 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const isHome = activePage === ActivePage.Home;
+  const isTransparentDark = !isScrolled && isHome && !isOpen;
+
+  const headerClasses = `fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+    isScrolled || isOpen
+      ? 'bg-white/95 backdrop-blur-md border-b border-brand-gray-mid shadow-sm'
+      : isHome
+      ? 'bg-transparent border-transparent'
+      : 'bg-white/80 backdrop-blur-sm border-b border-brand-gray-mid/50'
+  }`;
+
+  const getNavLinkClasses = (itemPage: ActivePage) => {
+    const isActive = activePage === itemPage;
+    if (isTransparentDark) {
+      if (isActive) {
+        return `px-4 py-2 rounded-md font-sans text-sm font-bold transition-all duration-200 focus:outline-none relative text-white`;
+      }
+      return `px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none relative text-white/90 hover:text-white hover:bg-white/10`;
+    }
+    if (isActive) {
+      return `px-4 py-2 rounded-md font-sans text-sm font-bold transition-all duration-200 focus:outline-none relative text-brand-orange`;
+    }
+    return `px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none relative text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light`;
+  };
+
+  const getServicesTriggerClasses = () => {
+    const isServicesActive = [ActivePage.Esquadrias, ActivePage.Fachadas, ActivePage.Brises, ActivePage.Vidros].includes(activePage);
+    if (isTransparentDark) {
+      if (isServicesActive) {
+        return `px-4 py-2 rounded-md font-sans text-sm font-bold transition-all duration-200 focus:outline-none flex items-center gap-1.5 relative text-white`;
+      }
+      return `px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none flex items-center gap-1.5 relative text-white/90 hover:text-white hover:bg-white/10`;
+    }
+    if (isServicesActive) {
+      return `px-4 py-2 rounded-md font-sans text-sm font-bold transition-all duration-200 focus:outline-none flex items-center gap-1.5 relative text-brand-orange`;
+    }
+    return `px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none flex items-center gap-1.5 relative text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light`;
+  };
+
+  const logoClasses = `h-14 w-auto object-contain transition-all duration-300 group-hover:scale-[1.03] ${
+    isTransparentDark ? 'brightness-0 invert' : ''
+  }`;
+
+  const mobileToggleClasses = `p-2 rounded-md focus:outline-none transition-colors ${
+    isTransparentDark
+      ? 'text-white hover:bg-white/10'
+      : 'text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light'
+  }`;
+
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-brand-gray-mid">
+    <header className={headerClasses}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Brand Logo */}
@@ -51,7 +108,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
             <img
               src={logoImg}
               alt="Esquadrijampa Logo"
-              className="h-14 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+              className={logoClasses}
               referrerPolicy="no-referrer"
             />
           </button>
@@ -61,11 +118,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
             {/* Início Link */}
             <button
               onClick={() => handleNavigate(ActivePage.Home)}
-              className={`px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none relative ${
-                activePage === ActivePage.Home
-                  ? 'text-brand-orange font-semibold'
-                  : 'text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light'
-              }`}
+              className={getNavLinkClasses(ActivePage.Home)}
               id="nav-link-home"
             >
               Início
@@ -77,11 +130,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
             {/* Dropdown de Serviços */}
             <div className="relative group py-2">
               <button
-                className={`px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none flex items-center gap-1.5 relative ${
-                  [ActivePage.Esquadrias, ActivePage.Fachadas, ActivePage.Brises, ActivePage.Vidros].includes(activePage)
-                    ? 'text-brand-orange font-semibold'
-                    : 'text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light'
-                }`}
+                className={getServicesTriggerClasses()}
                 id="nav-link-servicos"
               >
                 Serviços
@@ -116,11 +165,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 <button
                   key={item.page}
                   onClick={() => handleNavigate(item.page)}
-                  className={`px-4 py-2 rounded-md font-sans text-sm font-medium transition-all duration-200 focus:outline-none relative ${
-                    isActive
-                      ? 'text-brand-orange font-semibold'
-                      : 'text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light'
-                  }`}
+                  className={getNavLinkClasses(item.page)}
                   id={`nav-link-${item.page}`}
                 >
                   {item.label}
@@ -147,7 +192,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
           <div className="flex lg:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-md text-gray-600 hover:text-brand-charcoal hover:bg-brand-gray-light focus:outline-none"
+              className={mobileToggleClasses}
               aria-label="Toggle Menu"
               id="nav-mobile-toggle"
             >

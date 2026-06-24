@@ -13,7 +13,7 @@ import brisesRipadosImg from './assets/images/brises_ripados_detail_178231611729
 
 import janelaCorrerImg from './assets/images/janela_correr_1782328624428.jpg';
 import janelaMaximArImg from './assets/images/janela_maxim_ar_1782328634262.jpg';
-import janelaBocaLoboImg from './assets/images/janela_boca_lobo_1782328647430.jpg';
+import ventilacaoPermanenteImg from './assets/images/ventilacao_permanente_1782330692485.jpg';
 import portaCorrerImg from './assets/images/porta_correr_1782328657047.jpg';
 import portaGiroLambriImg from './assets/images/porta_giro_lambri_1782328674994.jpg';
 import portaCamaraoImg from './assets/images/porta_camarao_1782328685388.jpg';
@@ -27,7 +27,7 @@ export const IMAGES = {
   brisesRipados: brisesRipadosImg,
   janelaCorrer: janelaCorrerImg,
   janelaMaximAr: janelaMaximArImg,
-  janelaBocaLobo: janelaBocaLoboImg,
+  ventilacaoPermanente: ventilacaoPermanenteImg,
   portaCorrer: portaCorrerImg,
   portaGiroLambri: portaGiroLambriImg,
   portaCamarao: portaCamaraoImg,

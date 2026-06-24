@@ -54,7 +54,7 @@ export default function App() {
         <Navbar activePage={activePage} setActivePage={setActivePage} />
 
         {/* Dynamic Main Content area with page transition animations */}
-        <main id="main-content-area">
+        <main id="main-content-area" className={activePage === ActivePage.Home ? '' : 'pt-20'}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activePage}
