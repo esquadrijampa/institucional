@@ -70,7 +70,7 @@ export default function HomeSection({ setActivePage }: HomeSectionProps) {
             className="mt-6 text-lg sm:text-xl text-gray-200 max-w-2xl font-sans font-light leading-relaxed"
             id="hero-subheadline"
           >
-            Fabricação e instalação de esquadrias, brises, ripados, fachada em ACM e pele de vidro — do projeto à obra finalizada.
+            Fabricação e instalação de esquadrias, brises, ripados, fachada em ACM e pele de vidro, do projeto à obra finalizada.
           </motion.p>
 
           <motion.div
