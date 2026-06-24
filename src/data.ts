@@ -201,7 +201,7 @@ export const ABOUT_TEXT = {
 export const CONTACT_INFO = {
   whatsapp: '558393233500',
   phone: '+55 (83) 9323-3500',
-  email: 'sacesquadrijampa@gmail.com',
+  email: 'esquadrijampa@gmail.com',
   address: 'Rua Adalberto Florentino de Castro, 128 - Valentina, João Pessoa - PB, 58064-070',
   mapEmbedUrl: 'https://maps.google.com/maps?q=Rua%20Adalberto%20Florentino%20de%20Castro%20128,%20Valentina,%20Joao%20Pessoa%20PB&t=&z=16&ie=UTF8&iwloc=&output=embed',
 };

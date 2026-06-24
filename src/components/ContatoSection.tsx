@@ -75,11 +75,32 @@ export default function ContatoSection() {
     e.preventDefault();
     setIsSubmitting(true);
 
+    const emailSubject = `Solicitação de Orçamento - ${formData.name}`;
+    const emailBody = `Olá Esquadrijampa,
+
+Gostaria de solicitar um orçamento para o meu projeto:
+
+• Nome: ${formData.name}
+• Telefone: ${formData.phone}
+• E-mail: ${formData.email}
+• Tipo de Serviço: ${formData.serviceType}
+
+Detalhes do Projeto / Mensagem:
+${formData.message}
+${projectFile ? `\n* Nota: Tenho um arquivo de projeto em anexo pronto para enviar chamado: ${projectFile.name}` : ''}
+
+Aguardando contato. Obrigado!`;
+
+    const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
     // Simulate submission delay
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
-    }, 1500);
+      
+      // Auto open mailto client
+      window.location.href = mailtoUrl;
+    }, 1200);
   };
 
   return (
@@ -175,26 +196,80 @@ export default function ContatoSection() {
               >
                 <CheckCircle className="w-16 h-16 text-emerald-600 mx-auto mb-6" />
                 <h3 className="font-display text-2xl font-bold text-emerald-900 mb-2">
-                  Solicitação Enviada com Sucesso!
+                  Solicitação Iniciada com Sucesso!
                 </h3>
-                <p className="text-emerald-800 text-sm font-sans max-w-md mx-auto leading-relaxed mb-8">
-                  Olá <strong className="text-emerald-950">{formData.name}</strong>, recebemos seus dados e o interesse em esquadrias do tipo <strong>{formData.serviceType}</strong>. Nossa equipe técnica de João Pessoa já foi acionada e entrará em contato em breve.
+                <p className="text-emerald-800 text-sm font-sans max-w-md mx-auto leading-relaxed mb-6">
+                  Olá <strong className="text-emerald-950">{formData.name}</strong>! Preparamos o seu orçamento para esquadrias do tipo <strong>{formData.serviceType}</strong>. 
+                  O seu cliente de e-mail deve ter sido aberto automaticamente para envio da mensagem para <strong className="text-emerald-950">{CONTACT_INFO.email}</strong>.
                 </p>
+
                 {projectFile && (
-                  <div className="bg-white/80 p-3 rounded-sm border border-emerald-100 max-w-xs mx-auto flex items-center gap-2 mb-8 text-left">
+                  <div className="bg-white/80 p-3 rounded-sm border border-emerald-100 max-w-sm mx-auto flex items-center gap-2 mb-6 text-left">
                     <FileText className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <span className="text-xs font-mono text-emerald-900 truncate flex-1">{projectFile.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-emerald-950 truncate">{projectFile.name}</p>
+                      <p className="text-[10px] text-emerald-700 font-sans">Não se esqueça de anexar este arquivo no e-mail aberto!</p>
+                    </div>
                   </div>
                 )}
+
+                <div className="bg-white p-6 rounded-sm border border-emerald-100 max-w-md mx-auto space-y-4 mb-8">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500 font-sans">
+                    Você também pode enviar diretamente pelos canais abaixo:
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <a
+                      href={`mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(`Solicitação de Orçamento - ${formData.name}`)}&body=${encodeURIComponent(`Olá Esquadrijampa,
+
+Gostaria de solicitar um orçamento para o meu projeto:
+
+• Nome: ${formData.name}
+• Telefone: ${formData.phone}
+• E-mail: ${formData.email}
+• Tipo de Serviço: ${formData.serviceType}
+
+Detalhes do Projeto / Mensagem:
+${formData.message}
+${projectFile ? `\n* Nota: Tenho um arquivo de projeto em anexo chamado: ${projectFile.name}` : ''}
+
+Aguardando contato. Obrigado!`)}`}
+                      className="flex items-center justify-center gap-2 bg-brand-charcoal hover:bg-brand-chumbo text-white py-3 px-4 rounded-sm font-sans text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+                    >
+                      <Mail className="w-4 h-4 text-brand-orange" />
+                      Enviar por E-mail
+                    </a>
+
+                    <a
+                      href={`https://wa.me/${CONTACT_INFO.whatsapp}?text=${encodeURIComponent(`Olá Esquadrijampa, gostaria de solicitar um orçamento:
+
+• *Nome:* ${formData.name}
+• *Telefone:* ${formData.phone}
+• *E-mail:* ${formData.email}
+• *Serviço:* ${formData.serviceType}
+
+*Mensagem:*
+${formData.message}
+${projectFile ? `\n_Anexo enviado por e-mail: ${projectFile.name}_` : ''}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-sm font-sans text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Enviar por WhatsApp
+                    </a>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => {
                     setIsSubmitted(false);
                     setFormData({ name: '', phone: '', email: '', serviceType: 'Janelas', message: '' });
                     setProjectFile(null);
                   }}
-                  className="bg-emerald-600 text-white px-6 py-3 rounded-sm font-sans text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors shadow-sm"
+                  className="text-gray-500 hover:text-brand-charcoal font-sans text-xs font-bold uppercase tracking-wider transition-colors underline"
                 >
-                  Enviar Nova Solicitação
+                  Preencher Novo Formulário
                 </button>
               </motion.div>
             ) : (
