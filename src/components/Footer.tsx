@@ -142,9 +142,29 @@ export default function Footer({ setActivePage }: FooterProps) {
         </div>
 
         {/* Separator and copyright */}
-        <div className="pt-8 border-t border-gray-800 text-center md:flex md:justify-between md:items-center text-xs text-gray-500 font-sans">
-          <p>© {new Date().getFullYear()} Esquadrijampa. Todos os direitos reservados. Fabricação e instalação sob medida.</p>
-          <p className="mt-2 md:mt-0 font-mono tracking-wider">DO PROJETO À OBRA CONCLUÍDA</p>
+        <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-gray-500 font-sans">
+          <div className="flex flex-col gap-1 text-center md:text-left">
+            <p>© {new Date().getFullYear()} Esquadrijampa. Todos os direitos reservados. Fabricação e instalação sob medida.</p>
+            <p className="font-mono tracking-wider text-[10px] uppercase text-gray-400">Do Projeto à Obra Concluída</p>
+          </div>
+          
+          <div className="flex items-center gap-2.5 opacity-70 hover:opacity-100 transition-opacity duration-300">
+            <span className="text-gray-400 text-[11px] uppercase tracking-wider font-medium">Desenvolvido por</span>
+            <a 
+              href="https://webconverte.com.br" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center"
+              title="Webconverte"
+            >
+              <img 
+                src="/src/assets/images/webconverte_logo.svg" 
+                alt="Webconverte Logo" 
+                className="h-4.5 w-auto object-contain" 
+                referrerPolicy="no-referrer"
+              />
+            </a>
+          </div>
         </div>
       </div>
     </footer>
