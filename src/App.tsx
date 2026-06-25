@@ -21,6 +21,17 @@ import PortfolioSection from './components/PortfolioSection';
 import SobreNosSection from './components/SobreNosSection';
 import ContatoSection from './components/ContatoSection';
 
+const PAGE_META_MAP: Record<ActivePage, { title: string; path: string }> = {
+  [ActivePage.Home]: { title: 'Esquadrijampa - Home', path: '/' },
+  [ActivePage.Esquadrias]: { title: 'Esquadrijampa - Esquadrias de Alumínio', path: '/esquadrias' },
+  [ActivePage.Fachadas]: { title: 'Esquadrijampa - Fachadas de Vidro e ACM', path: '/fachadas' },
+  [ActivePage.Brises]: { title: 'Esquadrijampa - Brises e Venezianas', path: '/brises' },
+  [ActivePage.Vidros]: { title: 'Esquadrijampa - Vidros Comuns e Temperados', path: '/vidros' },
+  [ActivePage.Portfolio]: { title: 'Esquadrijampa - Nosso Portfólio', path: '/portfolio' },
+  [ActivePage.SobreNos]: { title: 'Esquadrijampa - Sobre Nós', path: '/sobre-nos' },
+  [ActivePage.Contato]: { title: 'Esquadrijampa - Fale Conosco', path: '/contato' },
+};
+
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>(ActivePage.Home);
 
@@ -122,7 +133,7 @@ export default function App() {
     };
   }, []);
 
-  // Update hash when activePage changes and force scroll to top
+  // Update hash when activePage changes, force scroll to top, and push virtual pageview to GTM
   useEffect(() => {
     const currentHash = window.location.hash.replace('#', '').toLowerCase();
     if (activePage === ActivePage.Home) {
@@ -135,6 +146,17 @@ export default function App() {
       }
     }
     window.scrollTo(0, 0);
+
+    // Push virtual pageview event for seamless Google Tag Manager and GA4 tracking
+    const meta = PAGE_META_MAP[activePage];
+    if (meta) {
+      const dataLayer = (window as any).dataLayer || [];
+      dataLayer.push({
+        event: 'virtual_pageview',
+        page_path: meta.path,
+        page_title: meta.title,
+      });
+    }
   }, [activePage]);
 
   const renderSection = () => {
