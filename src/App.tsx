@@ -32,6 +32,73 @@ export default function App() {
     window.scrollTo(0, 0);
   }, []);
 
+  // Global GTM dataLayer Click Listener
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      // Find the closest clickable element (button, link, or elements with role="button")
+      const clickableElement = target.closest<HTMLElement>('a, button, [role="button"]');
+      if (!clickableElement) return;
+
+      // Determine click text
+      let clickText = clickableElement.textContent?.trim() || '';
+      
+      // Fallback to title/alt/aria-label if no direct text (e.g. image buttons or icon-only buttons)
+      if (!clickText) {
+        clickText = 
+          clickableElement.getAttribute('aria-label') || 
+          clickableElement.getAttribute('title') || 
+          clickableElement.querySelector('img')?.getAttribute('alt') || 
+          clickableElement.querySelector('svg')?.getAttribute('title') || 
+          clickableElement.getAttribute('id') ||
+          '';
+      }
+      
+      // Clean up whitespace/newlines from text
+      clickText = clickText.replace(/\s+/g, ' ').trim();
+
+      // Determine click ID
+      const clickId = clickableElement.id || '';
+
+      // Determine click URL
+      const clickUrl = clickableElement.getAttribute('href') || '';
+
+      // Determine click category based on semantic parents
+      let clickCategory = 'cta'; // Default fallback category
+
+      if (clickableElement.closest('nav') || clickableElement.closest('#navbar') || clickableElement.closest('.navbar')) {
+        clickCategory = 'navbar';
+      } else if (clickableElement.closest('footer') || clickableElement.closest('#footer') || clickableElement.closest('.footer')) {
+        clickCategory = 'footer';
+      } else if (clickId === 'floating-whatsapp-btn' || clickId === 'floating-call-btn') {
+        clickCategory = 'floating_buttons';
+      } else if (clickableElement.closest('#contact') || clickableElement.closest('#contato') || clickableElement.closest('.contato-section') || clickableElement.closest('form')) {
+        clickCategory = 'contato_section';
+      } else if (clickableElement.closest('header')) {
+        clickCategory = 'header';
+      }
+
+      // Push mapped details to Google Tag Manager dataLayer
+      const dataLayer = (window as any).dataLayer || [];
+      dataLayer.push({
+        event: 'click_botaomapeado',
+        click_text: clickText,
+        click_id: clickId,
+        click_url: clickUrl,
+        click_category: clickCategory,
+        click_classes: clickableElement.className || '',
+        page_path: window.location.pathname + window.location.hash,
+      });
+    };
+
+    document.addEventListener('click', handleGlobalClick);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
+
   // Synchronize hash with activePage state
   useEffect(() => {
     const handleHashChange = () => {
