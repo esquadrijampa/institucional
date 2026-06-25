@@ -7,6 +7,7 @@ import { Phone, Mail, MapPin, MessageSquare, ArrowRight } from 'lucide-react';
 import { ActivePage } from '../types';
 import { CONTACT_INFO } from '../data';
 import logoImg from '../assets/images/logo.png';
+import webconverteLogo from '../assets/images/webconverte_logo.svg';
 
 interface FooterProps {
   setActivePage: (page: ActivePage) => void;
@@ -158,7 +159,7 @@ export default function Footer({ setActivePage }: FooterProps) {
               title="Webconverte"
             >
               <img 
-                src="/src/assets/images/webconverte_logo.svg" 
+                src={webconverteLogo} 
                 alt="Webconverte Logo" 
                 className="h-4.5 w-auto object-contain" 
                 referrerPolicy="no-referrer"
