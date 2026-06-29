@@ -50,7 +50,10 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<'7' | '14' | '30'>('14');
+  const [timeRange, setTimeRange] = useState<'7' | '14' | '30' | 'custom'>('14');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [metricsSource, setMetricsSource] = useState<'real' | 'simulated'>('real');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -214,20 +217,100 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
     return chatSessions.reduce((acc, s) => acc + s.messages.filter(m => m.sender === 'visitor' && !m.read).length, 0);
   }, [chatSessions]);
 
-  // Computed data based on selected time range
-  const filteredData = useMemo(() => {
-    const now = new Date();
-    const thresholdDate = new Date();
-    thresholdDate.setDate(now.getDate() - parseInt(timeRange));
+  // Dynamically compute views and clicks based on real Firestore session history vs simulated history
+  const computedViewsAndClicks = useMemo(() => {
+    if (metricsSource === 'simulated') {
+      return { views, clicks };
+    }
 
-    const rangeViews = views.filter(v => new Date(v.timestamp) >= thresholdDate);
-    const rangeClicks = clicks.filter(c => new Date(c.timestamp) >= thresholdDate);
+    // Compile from real Firestore chatSessions
+    const realViews: PageViewEvent[] = [];
+    const realClicks: ClickEvent[] = [];
+
+    chatSessions.forEach(session => {
+      // Ignore simulated sessions in real production view
+      if (session.isSimulated) return;
+
+      const baseDate = new Date(session.startedAt || session.lastActive || Date.now());
+
+      // Aggregate pagesPassed as PageViewEvents
+      if (session.pagesPassed && session.pagesPassed.length > 0) {
+        session.pagesPassed.forEach((path, idx) => {
+          // Stagger the views by a few minutes so they have distinct times
+          const viewTime = new Date(baseDate.getTime() + idx * 3 * 60 * 1000);
+          realViews.push({
+            path,
+            title: `Esquadrijampa - ${path === '/' ? 'Home' : path.substring(1)}`,
+            timestamp: viewTime.toISOString(),
+            referrer: session.referrer || 'Direto / Favoritos',
+            device: session.device || 'Computador',
+          });
+        });
+      } else {
+        // Fallback for sessions that don't have pagesPassed array (single page)
+        realViews.push({
+          path: '/',
+          title: 'Esquadrijampa - Home',
+          timestamp: baseDate.toISOString(),
+          referrer: session.referrer || 'Direto / Favoritos',
+          device: session.device || 'Computador',
+        });
+      }
+
+      // Aggregate clicks
+      if (session.clicks && session.clicks.length > 0) {
+        session.clicks.forEach(click => {
+          realClicks.push({
+            ...click,
+            timestamp: click.timestamp || baseDate.toISOString(),
+          });
+        });
+      }
+    });
+
+    return {
+      views: realViews,
+      clicks: realClicks,
+    };
+  }, [views, clicks, chatSessions, metricsSource]);
+
+  // Computed data based on selected time range or custom range
+  const filteredData = useMemo(() => {
+    const sourceViews = computedViewsAndClicks.views;
+    const sourceClicks = computedViewsAndClicks.clicks;
+
+    let rangeViews = sourceViews;
+    let rangeClicks = sourceClicks;
+
+    if (timeRange !== 'custom') {
+      const now = new Date();
+      const thresholdDate = new Date();
+      thresholdDate.setDate(now.getDate() - parseInt(timeRange));
+
+      rangeViews = sourceViews.filter(v => new Date(v.timestamp) >= thresholdDate);
+      rangeClicks = sourceClicks.filter(c => new Date(c.timestamp) >= thresholdDate);
+    } else {
+      if (startDate || endDate) {
+        const startThreshold = startDate ? new Date(startDate) : new Date(0);
+        // Include the entire end date by setting it to the end of day
+        const endThreshold = endDate ? new Date(endDate + 'T23:59:59') : new Date();
+
+        rangeViews = sourceViews.filter(v => {
+          const viewDate = new Date(v.timestamp);
+          return viewDate >= startThreshold && viewDate <= endThreshold;
+        });
+        rangeClicks = sourceClicks.filter(c => {
+          const clickDate = new Date(c.timestamp);
+          return clickDate >= startThreshold && clickDate <= endThreshold;
+        });
+      }
+    }
 
     return {
       views: rangeViews,
       clicks: rangeClicks,
     };
-  }, [views, clicks, timeRange]);
+  }, [computedViewsAndClicks, timeRange, startDate, endDate]);
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -266,38 +349,103 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
 
   // Daily Chart aggregation (Views & Visits over selected days)
   const chartData = useMemo(() => {
-    const days = parseInt(timeRange);
     const data: Array<{ dateStr: string; label: string; views: number; visits: number }> = [];
     const now = new Date();
 
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      const yyyymmdd = d.toISOString().split('T')[0];
+    if (timeRange !== 'custom') {
+      const days = parseInt(timeRange);
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        const yyyymmdd = d.toISOString().split('T')[0];
 
-      // Views for this day
-      const dayViews = filteredData.views.filter(v => v.timestamp.startsWith(yyyymmdd));
-      
-      // Visits for this day
-      const visitorKeys = new Set();
-      dayViews.forEach(view => {
-        visitorKeys.add(`${view.referrer}_${view.device}`);
-      });
-      const dayVisits = Math.max(dayViews.length > 0 ? 1 : 0, visitorKeys.size);
+        // Views for this day
+        const dayViews = filteredData.views.filter(v => v.timestamp.startsWith(yyyymmdd));
+        
+        // Visits for this day
+        const visitorKeys = new Set();
+        dayViews.forEach(view => {
+          visitorKeys.add(`${view.referrer}_${view.device}`);
+        });
+        const dayVisits = Math.max(dayViews.length > 0 ? 1 : 0, visitorKeys.size);
 
-      // Formatting label e.g., "25 Jun"
-      const label = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+        // Formatting label e.g., "25 Jun"
+        const label = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
 
-      data.push({
-        dateStr: yyyymmdd,
-        label,
-        views: dayViews.length,
-        visits: dayVisits,
-      });
+        data.push({
+          dateStr: yyyymmdd,
+          label,
+          views: dayViews.length,
+          visits: dayVisits,
+        });
+      }
+    } else {
+      // Custom date range charting
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        let days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        if (days > 120) days = 120; // safe limit
+
+        for (let i = 0; i < days; i++) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + i);
+          const yyyymmdd = d.toISOString().split('T')[0];
+
+          // Views for this day
+          const dayViews = filteredData.views.filter(v => v.timestamp.startsWith(yyyymmdd));
+          
+          // Visits for this day
+          const visitorKeys = new Set();
+          dayViews.forEach(view => {
+            visitorKeys.add(`${view.referrer}_${view.device}`);
+          });
+          const dayVisits = Math.max(dayViews.length > 0 ? 1 : 0, visitorKeys.size);
+
+          // Formatting label e.g., "25 Jun"
+          const label = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+
+          data.push({
+            dateStr: yyyymmdd,
+            label,
+            views: dayViews.length,
+            visits: dayVisits,
+          });
+        }
+      } else {
+        // Default to last 14 days if custom date range is selected but not completely set
+        const days = 14;
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(now);
+          d.setDate(now.getDate() - i);
+          const yyyymmdd = d.toISOString().split('T')[0];
+
+          // Views for this day
+          const dayViews = filteredData.views.filter(v => v.timestamp.startsWith(yyyymmdd));
+          
+          // Visits for this day
+          const visitorKeys = new Set();
+          dayViews.forEach(view => {
+            visitorKeys.add(`${view.referrer}_${view.device}`);
+          });
+          const dayVisits = Math.max(dayViews.length > 0 ? 1 : 0, visitorKeys.size);
+
+          // Formatting label e.g., "25 Jun"
+          const label = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+
+          data.push({
+            dateStr: yyyymmdd,
+            label,
+            views: dayViews.length,
+            visits: dayVisits,
+          });
+        }
+      }
     }
 
     return data;
-  }, [filteredData, timeRange]);
+  }, [filteredData, timeRange, startDate, endDate]);
 
   // Traffic Sources aggregation
   const trafficSources = useMemo(() => {
@@ -572,26 +720,62 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
           {activeTab === 'metrics' && (
-            <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs">
-              <button
-                onClick={() => setTimeRange('7')}
-                className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '7' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
-              >
-                7 dias
-              </button>
-              <button
-                onClick={() => setTimeRange('14')}
-                className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '14' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
-              >
-                14 dias
-              </button>
-              <button
-                onClick={() => setTimeRange('30')}
-                className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '30' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
-              >
-                30 dias
-              </button>
-            </div>
+            <>
+              {/* Fonte de Dados Toggle */}
+              <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-[11px] gap-0.5">
+                <button
+                  onClick={() => setMetricsSource('real')}
+                  className={`px-2.5 py-1.5 rounded transition-all font-bold flex items-center gap-1.5 cursor-pointer border ${
+                    metricsSource === 'real' 
+                      ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20' 
+                      : 'text-neutral-400 hover:text-white border-transparent'
+                  }`}
+                  title="Métricas em tempo real de visitantes do site"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${metricsSource === 'real' ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
+                  Dados Reais
+                </button>
+                <button
+                  onClick={() => setMetricsSource('simulated')}
+                  className={`px-2.5 py-1.5 rounded transition-all font-bold flex items-center gap-1.5 cursor-pointer border ${
+                    metricsSource === 'simulated' 
+                      ? 'bg-amber-950/40 text-amber-400 border-amber-500/20' 
+                      : 'text-neutral-400 hover:text-white border-transparent'
+                  }`}
+                  title="Dados simulados de demonstração"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  Demonstração
+                </button>
+              </div>
+
+              <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs">
+                <button
+                  onClick={() => setTimeRange('7')}
+                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '7' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  7 dias
+                </button>
+                <button
+                  onClick={() => setTimeRange('14')}
+                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '14' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  14 dias
+                </button>
+                <button
+                  onClick={() => setTimeRange('30')}
+                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '30' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  30 dias
+                </button>
+                <button
+                  onClick={() => setTimeRange('custom')}
+                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === 'custom' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  Personalizado
+                </button>
+              </div>
+            </>
           )}
 
           {activeTab === 'chat' && (
@@ -647,6 +831,47 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
       <main className="max-w-7xl mx-auto px-6 pt-8 space-y-8 animate-fade-in">
         {activeTab === 'metrics' ? (
           <>
+            {/* Custom Date Picker inputs shown ONLY when 'custom' is selected */}
+            {timeRange === 'custom' && (
+              <div className="bg-neutral-900 border border-neutral-800 p-4 rounded flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between animate-fade-in">
+                <div className="flex items-center gap-2 text-sm text-neutral-300">
+                  <Calendar className="w-4 h-4 text-brand-orange" />
+                  <span className="font-semibold">Período Personalizado:</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-neutral-400 font-mono">De:</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-neutral-950 border border-neutral-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-orange cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-neutral-400 font-mono">Até:</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-neutral-950 border border-neutral-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-orange cursor-pointer"
+                    />
+                  </div>
+                  {(startDate || endDate) && (
+                    <button
+                      onClick={() => {
+                        setStartDate('');
+                        setEndDate('');
+                      }}
+                      className="text-xs bg-neutral-800 hover:bg-neutral-750 text-neutral-300 px-3 py-1.5 rounded transition-all cursor-pointer border border-neutral-700/50"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* KPI Dashboard Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
