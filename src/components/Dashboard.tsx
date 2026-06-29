@@ -469,9 +469,13 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
     let mobile = 0, desktop = 0, tablet = 0;
     filteredData.views.forEach(v => {
       const dev = v.device?.toLowerCase() || '';
-      if (dev.includes('mobile')) mobile++;
-      else if (dev.includes('tablet')) tablet++;
-      else desktop++;
+      if (dev.includes('mobile') || dev.includes('celular') || dev.includes('phone')) {
+        mobile++;
+      } else if (dev.includes('tablet') || dev.includes('ipad')) {
+        tablet++;
+      } else {
+        desktop++;
+      }
     });
 
     const total = Math.max(1, mobile + desktop + tablet);
