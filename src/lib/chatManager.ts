@@ -468,6 +468,31 @@ class ChatManager {
     }
   }
 
+  public trackPageNavigation(path: string) {
+    const currentId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || 'visitor_' + Date.now();
+    if (!sessionStorage.getItem('esquadrijampa_analytics_session_id')) {
+      sessionStorage.setItem('esquadrijampa_analytics_session_id', currentId);
+    }
+
+    let session = this.sessions.find(s => s.sessionId === currentId);
+    if (!session) {
+      session = this.getOrCreateCurrentVisitor();
+    }
+
+    if (session) {
+      if (!session.pagesPassed) {
+        session.pagesPassed = [];
+      }
+      
+      const lastPage = session.pagesPassed[session.pagesPassed.length - 1];
+      if (lastPage !== path) {
+        session.pagesPassed = [...session.pagesPassed, path];
+        session.lastActive = new Date().toISOString();
+        this.saveSessionToFirestore(session);
+      }
+    }
+  }
+
   public async triggerSimulatedVisitor() {
     const p = SIMULATED_PERSONAS[Math.floor(Math.random() * SIMULATED_PERSONAS.length)];
     const randomId = 'simulated_' + Date.now() + '_' + Math.floor(Math.random() * 1000);

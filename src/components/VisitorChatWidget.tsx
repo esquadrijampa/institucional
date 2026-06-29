@@ -220,14 +220,14 @@ export default function VisitorChatWidget() {
                       placeholder="Qual o seu nome?"
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
-                      className="w-full text-xs text-neutral-800 bg-white border border-neutral-300 rounded p-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange text-center"
+                      className="w-full text-base md:text-xs text-neutral-800 bg-white border border-neutral-300 rounded p-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange text-center"
                     />
                     <input
                       type="tel"
                       placeholder="WhatsApp / Telefone"
                       value={phoneInput}
                       onChange={(e) => setPhoneInput(e.target.value)}
-                      className="w-full text-xs text-neutral-800 bg-white border border-neutral-300 rounded p-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange text-center"
+                      className="w-full text-base md:text-xs text-neutral-800 bg-white border border-neutral-300 rounded p-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange text-center"
                     />
                     <button
                       type="submit"
@@ -308,7 +308,7 @@ export default function VisitorChatWidget() {
                   placeholder="Escreva sua mensagem..."
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
-                  className="flex-1 text-xs text-neutral-800 bg-neutral-100 border border-neutral-200 rounded-full px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:bg-white transition-all"
+                  className="flex-1 text-base md:text-xs text-neutral-800 bg-neutral-100 border border-neutral-200 rounded-full px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:bg-white transition-all"
                 />
                 <button
                   type="submit"

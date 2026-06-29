@@ -34,7 +34,8 @@ import {
   ExternalLink,
   AlertTriangle,
   CheckCircle2,
-  Archive
+  Archive,
+  CheckCheck
 } from 'lucide-react';
 import { analyticsTracker, PageViewEvent, ClickEvent } from '../lib/analyticsTracker';
 import { chatManager, VisitorSession, ChatMessage, formatTimeOnline } from '../lib/chatManager';
@@ -1505,10 +1506,12 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             setSelectedSessionId(s.sessionId);
                             chatManager.markAsRead(s.sessionId);
                           }}
-                          className={`w-full text-left p-4 transition-all hover:bg-neutral-800/30 flex items-start gap-3 border-l-2 cursor-pointer ${
+                          className={`w-full text-left p-4 transition-all flex items-start gap-3 border-l-2 cursor-pointer ${
                             isActive 
                               ? 'bg-neutral-800/50 border-brand-orange text-white' 
-                              : 'border-transparent text-neutral-300'
+                              : unreadMessages.length > 0
+                                ? 'bg-[#00a884]/5 hover:bg-[#00a884]/10 border-l-[#00a884] text-white'
+                                : 'border-transparent text-neutral-300 hover:bg-neutral-800/30'
                           }`}
                         >
                           {/* Status Badge */}
@@ -1524,19 +1527,19 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                           {/* Meta Info */}
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex justify-between items-baseline gap-1">
-                              <span className="font-semibold text-xs truncate text-white block">
+                              <span className={`font-semibold text-xs truncate block ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-white'}`}>
                                 {s.customName || s.visitorName}
                                 {s.customName && <span className="text-[9px] text-brand-orange ml-1.5 font-normal">(Editado)</span>}
                               </span>
                               {lastMsg && (
-                                <span className="text-[9px] text-neutral-500 font-mono shrink-0">
+                                <span className={`text-[9px] font-mono shrink-0 ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-neutral-500'}`}>
                                   {new Date(lastMsg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               )}
                             </div>
 
                             {/* Last message preview */}
-                            <p className="text-[11px] text-neutral-400 truncate">
+                            <p className={`text-[11px] truncate ${unreadMessages.length > 0 && !isActive ? 'text-neutral-100 font-semibold' : 'text-neutral-400'}`}>
                               {lastMsg ? lastMsg.text : 'Sem mensagens.'}
                             </p>
 
@@ -1556,9 +1559,9 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             </div>
                           </div>
 
-                          {/* Unread Message Dot */}
+                          {/* Unread Message Dot (WhatsApp style green badge) */}
                           {unreadMessages.length > 0 && (
-                            <span className="w-5 h-5 rounded-full bg-brand-orange text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+                            <span className="w-5 h-5 rounded-full bg-[#00a884] text-neutral-950 text-[10px] font-extrabold flex items-center justify-center shrink-0 shadow-sm animate-pulse">
                               {unreadMessages.length}
                             </span>
                           )}
@@ -1698,17 +1701,23 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                     {/* Chat Splitscreen: Feed and Tracking panels */}
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden h-[450px]">
                       
-                      {/* Left Side: Message feed */}
-                      <div className="md:col-span-7 flex flex-col h-full bg-neutral-950/15 overflow-hidden border-r border-neutral-800">
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+                      {/* Left Side: Message feed (WhatsApp Mobile layout) */}
+                      <div 
+                        className="md:col-span-7 flex flex-col h-full bg-[#0b141a] overflow-hidden border-r border-neutral-800 relative"
+                        style={{ 
+                          backgroundImage: 'radial-gradient(#1f2c34 1.2px, transparent 1.2px)', 
+                          backgroundSize: '20px 20px' 
+                        }}
+                      >
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
                           {activeSession.messages.map((msg) => {
                             const isSystem = msg.sender === 'system';
                             const isAdmin = msg.sender === 'admin';
 
                             if (isSystem) {
                               return (
-                                <div key={msg.id} className="flex justify-center my-1.5">
-                                  <span className="bg-neutral-850/80 border border-neutral-800 text-neutral-400 text-[10px] px-3 py-1 rounded-full text-center max-w-[90%] font-mono">
+                                <div key={msg.id} className="flex justify-center my-2">
+                                  <span className="bg-[#182229] border border-neutral-800/60 text-[#8696a0] text-[10px] px-3.5 py-1.5 rounded-md text-center max-w-[85%] shadow-sm font-medium">
                                     {msg.text}
                                   </span>
                                 </div>
@@ -1718,19 +1727,27 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             return (
                               <div
                                 key={msg.id}
-                                className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}
+                                className={`flex ${isAdmin ? 'justify-end' : 'justify-start'} mb-1`}
                               >
                                 <div
-                                  className={`max-w-[80%] rounded px-3.5 py-2 text-xs shadow-sm leading-relaxed ${
+                                  className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs shadow-md relative leading-relaxed flex flex-col ${
                                     isAdmin
-                                      ? 'bg-brand-orange text-white rounded-tr-none'
-                                      : 'bg-neutral-800 text-neutral-200 rounded-tl-none border border-neutral-700/35'
+                                      ? 'bg-[#005c4b] text-neutral-100 rounded-tr-none'
+                                      : 'bg-[#202c33] text-neutral-200 rounded-tl-none border border-neutral-800/30'
                                   }`}
                                 >
-                                  <p>{msg.text}</p>
-                                  <span className="block text-[8px] text-right mt-1 opacity-60 font-mono">
-                                    {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
+                                  {/* Message Text with padding-bottom to avoid overlap with absolute timestamp */}
+                                  <p className="whitespace-pre-wrap break-words pb-4 pr-2">{msg.text}</p>
+                                  
+                                  {/* Timestamp & Double Ticks */}
+                                  <div className="absolute bottom-1.5 right-2.5 flex items-center gap-1 text-[9px] select-none text-[#8696a0] font-medium">
+                                    <span>
+                                      {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {isAdmin && (
+                                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" />
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -1738,7 +1755,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                           <div ref={chatMessagesEndRef} />
                         </div>
 
-                        {/* Input row */}
+                        {/* Input row (WhatsApp Mobile style) */}
                         <form 
                           onSubmit={(e) => {
                             e.preventDefault();
@@ -1747,21 +1764,24 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                               setAdminMessageInput('');
                             }
                           }}
-                          className="p-3 bg-neutral-900 border-t border-neutral-800 flex items-center gap-2"
+                          className="p-3 bg-[#1f2c34] flex items-center gap-2 border-t border-neutral-800/40"
                         >
-                          <input
-                            type="text"
-                            required
-                            placeholder={`Responder para ${activeSession.customName || activeSession.visitorName}...`}
-                            value={adminMessageInput}
-                            onChange={(e) => setAdminMessageInput(e.target.value)}
-                            className="flex-1 text-xs text-white bg-neutral-950 border border-neutral-800 rounded-full px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:bg-neutral-900 transition-all"
-                          />
+                          <div className="flex-1 bg-[#2a3942] rounded-full flex items-center px-4 py-1 border border-neutral-800/20 shadow-inner">
+                            <input
+                              type="text"
+                              required
+                              placeholder="Mensagem"
+                              value={adminMessageInput}
+                              onChange={(e) => setAdminMessageInput(e.target.value)}
+                              className="flex-1 text-xs text-white bg-transparent border-none outline-none py-2.5 focus:ring-0 placeholder-[#8696a0]"
+                            />
+                          </div>
                           <button
                             type="submit"
-                            className="p-2.5 rounded-full bg-brand-orange hover:bg-brand-orange-hover text-white transition-colors cursor-pointer shadow-md shrink-0"
+                            className="p-3 rounded-full bg-[#00a884] hover:bg-[#008f72] text-neutral-950 transition-colors cursor-pointer shadow-md shrink-0 flex items-center justify-center"
+                            title="Enviar"
                           >
-                            <Send className="w-4 h-4" />
+                            <Send className="w-4 h-4 text-neutral-950" />
                           </button>
                         </form>
                       </div>

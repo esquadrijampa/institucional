@@ -24,6 +24,7 @@ import Dashboard from './components/Dashboard';
 import VisitorChatWidget from './components/VisitorChatWidget';
 
 import { analyticsTracker } from './lib/analyticsTracker';
+import { chatManager } from './lib/chatManager';
 
 const PAGE_META_MAP: Record<ActivePage, { title: string; path: string }> = {
   [ActivePage.Home]: { title: 'Esquadrijampa - Home', path: '/' },
@@ -167,6 +168,9 @@ export default function App() {
     if (meta) {
       // Record locally in our tracker
       analyticsTracker.trackPageView(meta.path, meta.title);
+
+      // Track live chat session page navigation
+      chatManager.trackPageNavigation(meta.path);
 
       const dataLayer = (window as any).dataLayer || [];
       dataLayer.push({
