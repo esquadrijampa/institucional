@@ -265,10 +265,15 @@ class ChatManager {
     if (!session) {
       // Get visitor context from analytics tracker
       const allViews = analyticsTracker.getViews();
-      const sessionViews = allViews.filter(v => {
-        const d = new Date(v.timestamp);
-        return (Date.now() - d.getTime()) < 3600000 * 2; // last 2 hours
-      });
+      let sessionViews = allViews.filter(v => v.sessionId === currentId);
+      
+      // Fallback for transition/legacy views without sessionId
+      if (sessionViews.length === 0) {
+        sessionViews = allViews.filter(v => {
+          const d = new Date(v.timestamp);
+          return (Date.now() - d.getTime()) < 3600000 * 2; // last 2 hours
+        });
+      }
 
       const pagesPassed = sessionViews.map(v => v.path);
       const referrer = sessionViews[0]?.referrer || 'Direto / Favoritos';
@@ -277,6 +282,10 @@ class ChatManager {
       // Load previous names/preferences if any
       const currentStoredInfoRaw = localStorage.getItem(CURRENT_VISITOR_KEY);
       const storedInfo = currentStoredInfoRaw ? JSON.parse(currentStoredInfoRaw) : {};
+
+      // Filter clicks strictly by sessionId to prevent cross-session leaking
+      const allClicks = analyticsTracker.getClicks();
+      const sessionClicks = allClicks.filter(c => c.sessionId === currentId);
 
       session = {
         sessionId: currentId,
@@ -289,7 +298,7 @@ class ChatManager {
         referrer,
         visitsCount: 1,
         pagesPassed: pagesPassed.length > 0 ? pagesPassed : ['/'],
-        clicks: analyticsTracker.getClicks().filter(c => c.timestamp),
+        clicks: sessionClicks,
         messages: [],
         adminNotes: '',
         phone: storedInfo.phone || '',
@@ -487,6 +496,46 @@ class ChatManager {
       const lastPage = session.pagesPassed[session.pagesPassed.length - 1];
       if (lastPage !== path) {
         session.pagesPassed = [...session.pagesPassed, path];
+        session.lastActive = new Date().toISOString();
+        this.saveSessionToFirestore(session);
+      }
+    }
+  }
+
+  public trackClickAction(clickText: string, clickId: string, elementClass: string, category: string, path: string) {
+    const currentId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || 'visitor_' + Date.now();
+    if (!sessionStorage.getItem('esquadrijampa_analytics_session_id')) {
+      sessionStorage.setItem('esquadrijampa_analytics_session_id', currentId);
+    }
+
+    let session = this.sessions.find(s => s.sessionId === currentId);
+    if (!session) {
+      session = this.getOrCreateCurrentVisitor();
+    }
+
+    if (session) {
+      if (!session.clicks) {
+        session.clicks = [];
+      }
+      
+      const newClick: ClickEvent = {
+        sessionId: currentId,
+        text: clickText || 'Botão sem texto',
+        elementId: clickId || 'sem_id',
+        elementClass: elementClass || '',
+        category: category || 'geral',
+        path: path || window.location.pathname,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Avoid registering duplicate clicks in the exact same millisecond
+      const isDuplicate = session.clicks.some(
+        c => c.elementId === clickId && 
+             Math.abs(new Date(c.timestamp).getTime() - Date.now()) < 500
+      );
+
+      if (!isDuplicate) {
+        session.clicks = [...session.clicks, newClick];
         session.lastActive = new Date().toISOString();
         this.saveSessionToFirestore(session);
       }

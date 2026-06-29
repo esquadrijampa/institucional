@@ -107,6 +107,15 @@ export default function App() {
         window.location.pathname + window.location.hash
       );
 
+      // Track click in active visitor session in Firestore
+      chatManager.trackClickAction(
+        clickText,
+        clickId,
+        clickableElement.className || '',
+        clickCategory,
+        window.location.pathname + window.location.hash
+      );
+
       // Push mapped details to Google Tag Manager dataLayer
       const dataLayer = (window as any).dataLayer || [];
       dataLayer.push({

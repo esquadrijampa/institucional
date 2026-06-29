@@ -4,6 +4,7 @@
  */
 
 export interface PageViewEvent {
+  sessionId?: string;
   path: string;
   title: string;
   timestamp: string;
@@ -15,6 +16,7 @@ export interface PageViewEvent {
 }
 
 export interface ClickEvent {
+  sessionId?: string;
   text: string;
   elementId: string;
   elementClass: string;
@@ -194,8 +196,10 @@ export const analyticsTracker = {
       
       const utm = getUtmParams();
       const referrer = document.referrer ? new URL(document.referrer).hostname : 'Direto / Favoritos';
+      const sessionId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || undefined;
 
       const event: PageViewEvent = {
+        sessionId,
         path,
         title,
         timestamp: new Date().toISOString(),
@@ -220,8 +224,10 @@ export const analyticsTracker = {
     try {
       const clicksRaw = localStorage.getItem(CLICKS_KEY);
       const clicks: ClickEvent[] = clicksRaw ? JSON.parse(clicksRaw) : [];
+      const sessionId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || undefined;
 
       const event: ClickEvent = {
+        sessionId,
         text: text || 'Botão sem texto',
         elementId: elementId || 'sem_id',
         elementClass: elementClass || '',
