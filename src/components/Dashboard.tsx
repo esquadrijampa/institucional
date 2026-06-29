@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Search,
   ChevronRight,
+  ChevronLeft,
   TrendingUp,
   AlertCircle,
   MessageSquare,
@@ -70,6 +71,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [currentSubTab, setCurrentSubTab] = useState<'active' | 'archived'>('active');
   const [notesSaveStatus, setNotesSaveStatus] = useState<string>('');
   const [chatSearchTerm, setChatSearchTerm] = useState<string>('');
+  const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'online' | 'offline' | 'with_messages'>('all');
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
   // Email Notification system states
@@ -683,10 +685,10 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
         </div>
 
         {/* Tab Controls (Centralized) */}
-        <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs">
+        <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs overflow-x-auto max-w-full whitespace-nowrap scrollbar-none flex-shrink-0">
           <button
             onClick={() => setActiveTab('metrics')}
-            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'metrics' 
                 ? 'bg-neutral-800 text-brand-orange shadow-md' 
                 : 'text-neutral-400 hover:text-white'
@@ -705,7 +707,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                 chatManager.markAsRead(first.sessionId);
               }
             }}
-            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer relative ${
+            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer relative flex-shrink-0 ${
               activeTab === 'chat' 
                 ? 'bg-neutral-800 text-brand-orange shadow-md' 
                 : 'text-neutral-400 hover:text-white'
@@ -722,7 +724,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           </button>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full md:w-auto">
           {activeTab === 'metrics' && (
             <>
               {/* Fonte de Dados Toggle */}
@@ -962,14 +964,15 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
             </div>
           </div>
 
-          {/* SVG Line Chart (Highly responsive, zero library risks) */}
+          {/* SVG Line Chart (Highly responsive, with horizontal scroll fallback on mobile) */}
           <div className="relative">
-            <div className="w-full overflow-hidden">
-              <svg 
-                viewBox="0 0 800 240" 
-                className="w-full h-auto overflow-visible select-none"
-                style={{ contentVisibility: 'auto' }}
-              >
+            <div className="w-full overflow-x-auto scrollbar-none">
+              <div className="min-w-[750px] lg:min-w-0 w-full">
+                <svg 
+                  viewBox="0 0 800 240" 
+                  className="w-full h-auto overflow-visible select-none"
+                  style={{ contentVisibility: 'auto' }}
+                >
                 {/* Definitions for Gradients */}
                 <defs>
                   <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1103,6 +1106,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                   );
                 })}
               </svg>
+              </div>
             </div>
 
             {/* Floating Info Tooltip */}
@@ -1289,8 +1293,8 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="overflow-x-auto scrollbar-none">
+            <table className="w-full min-w-[800px] text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-neutral-800 text-neutral-400 font-mono uppercase tracking-wider text-[10px]">
                   <th className="pb-3 pl-4 font-semibold">Elemento/Texto</th>
@@ -1561,8 +1565,8 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                 )}
               </div>
 
-              <div className="bg-neutral-950 border border-neutral-850 rounded-lg overflow-hidden">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="bg-neutral-950 border border-neutral-850 rounded-lg overflow-x-auto scrollbar-none">
+                <table className="w-full min-w-[750px] text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-neutral-800 text-neutral-400 font-mono uppercase tracking-wider text-[10px] bg-neutral-900/40">
                       <th className="p-3 pl-4 font-semibold">Horário / Data</th>
@@ -1615,10 +1619,10 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           </div>
         ) : (
           /* Live Support Chat Workspace */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)] min-h-[580px] bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 h-[calc(100vh-140px)] min-h-[580px] bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans">
             
             {/* Left Column: Sessions List */}
-            <div className="lg:col-span-4 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60">
+            <div className={`lg:col-span-3 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60 ${selectedSessionId ? 'hidden lg:flex' : 'flex'}`}>
               <div className="p-4 border-b border-neutral-800 space-y-3">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
@@ -1663,21 +1667,39 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                   />
                 </div>
 
-                {/* Sorting Select Dropdown */}
-                <div className="flex items-center justify-between gap-1 pt-1">
-                  <span className="text-[10px] text-neutral-500 font-semibold font-mono uppercase tracking-wider">
-                    Ordenar por:
-                  </span>
-                  <select
-                    value={chatSortBy}
-                    onChange={(e) => setChatSortBy(e.target.value as any)}
-                    className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[10px] font-semibold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange text-right"
-                  >
-                    <option value="recent">Mais Recente (Atividade)</option>
-                    <option value="online_time">Tempo no Site</option>
-                    <option value="alphabetical">Nome (A-Z)</option>
-                    <option value="unread">Mensagens não lidas</option>
-                  </select>
+                {/* Sorting & Status Filters */}
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-neutral-500 font-semibold font-mono uppercase tracking-wider">
+                      Filtrar Status:
+                    </span>
+                    <select
+                      value={chatStatusFilter}
+                      onChange={(e) => setChatStatusFilter(e.target.value as any)}
+                      className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[10px] font-semibold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange text-right"
+                    >
+                      <option value="all">Todos os Visitantes</option>
+                      <option value="online">Online (Ativo)</option>
+                      <option value="offline">Offline</option>
+                      <option value="with_messages">Com Conversa</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-neutral-500 font-semibold font-mono uppercase tracking-wider">
+                      Ordenar por:
+                    </span>
+                    <select
+                      value={chatSortBy}
+                      onChange={(e) => setChatSortBy(e.target.value as any)}
+                      className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[10px] font-semibold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange text-right"
+                    >
+                      <option value="recent">Mais Recente (Atividade)</option>
+                      <option value="online_time">Tempo no Site</option>
+                      <option value="alphabetical">Nome (A-Z)</option>
+                      <option value="unread">Mensagens não lidas</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1686,7 +1708,14 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                   const term = chatSearchTerm.toLowerCase();
                   const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
                   const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
-                  return matchesSearch && matchesTab;
+                  const matchesStatus = chatStatusFilter === 'all' 
+                    ? true 
+                    : chatStatusFilter === 'online' 
+                      ? s.online === true 
+                      : chatStatusFilter === 'offline' 
+                        ? s.online !== true 
+                        : s.messages.length > 0;
+                  return matchesSearch && matchesTab && matchesStatus;
                 }).length === 0 ? (
                   <div className="p-8 text-center text-xs text-neutral-500 space-y-2">
                     <User className="w-8 h-8 text-neutral-600 mx-auto" />
@@ -1701,7 +1730,14 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       const term = chatSearchTerm.toLowerCase();
                       const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
                       const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
-                      return matchesSearch && matchesTab;
+                      const matchesStatus = chatStatusFilter === 'all' 
+                        ? true 
+                        : chatStatusFilter === 'online' 
+                          ? s.online === true 
+                          : chatStatusFilter === 'offline' 
+                            ? s.online !== true 
+                            : s.messages.length > 0;
+                      return matchesSearch && matchesTab && matchesStatus;
                     })
                     .slice()
                     .sort((a, b) => {
@@ -1802,7 +1838,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
             </div>
 
             {/* Right Column: Chat Workspace */}
-            <div className="lg:col-span-8 flex flex-col h-full bg-neutral-950/20">
+            <div className={`lg:col-span-9 flex flex-col h-full bg-neutral-950/20 ${selectedSessionId ? 'flex' : 'hidden lg:flex'}`}>
               {(() => {
                 const activeSession = chatSessions.find(s => s.sessionId === selectedSessionId) || null;
                 if (!activeSession) {
@@ -1823,7 +1859,17 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                   <div className="flex flex-col h-full divide-y divide-neutral-800">
                     {/* Active Header */}
                     <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-neutral-900/40">
-                      <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Botão de Voltar para Mobile */}
+                        <button
+                          onClick={() => setSelectedSessionId(null)}
+                          className="lg:hidden flex items-center justify-center p-2 rounded bg-neutral-800 hover:bg-neutral-750 text-neutral-300 cursor-pointer border border-neutral-700/50 shrink-0"
+                          title="Voltar para lista de visitantes"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-brand-orange" />
+                        </button>
+
+                        <div className="space-y-1.5 flex-1 min-w-0">
                         {editingNameSessionId === activeSession.sessionId ? (
                           <form 
                             onSubmit={(e) => {
@@ -1883,6 +1929,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                           ID: <span className="text-neutral-400 font-mono">{activeSession.sessionId}</span> • Origem: <span className="text-brand-orange font-semibold">{activeSession.referrer}</span> • Dispositivo: <span className="text-neutral-300 font-semibold">{activeSession.device}</span>
                         </p>
                       </div>
+                    </div>
 
                       <div className="flex items-center gap-2">
                         {activeSession.archived ? (
@@ -1928,11 +1975,11 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                     </div>
 
                     {/* Chat Splitscreen: Feed and Tracking panels */}
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden h-[450px]">
+                    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
                       
                       {/* Left Side: Message feed (WhatsApp Mobile layout) */}
                       <div 
-                        className="md:col-span-7 flex flex-col h-full bg-[#0b141a] overflow-hidden border-r border-neutral-800 relative"
+                        className="lg:col-span-8 flex flex-col h-full bg-[#0b141a] overflow-hidden border-r border-neutral-800 relative"
                         style={{ 
                           backgroundImage: 'radial-gradient(#1f2c34 1.2px, transparent 1.2px)', 
                           backgroundSize: '20px 20px' 
@@ -2016,7 +2063,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       </div>
 
                       {/* Right Side: Visitor Dossier & Notes */}
-                      <div className="md:col-span-5 flex flex-col h-full divide-y divide-neutral-800 overflow-y-auto bg-neutral-900/10">
+                      <div className="lg:col-span-4 flex flex-col h-full divide-y divide-neutral-800 overflow-y-auto bg-neutral-900/10">
                         
                         {/* Contact Dossier Card */}
                         <div className="p-4 space-y-3 bg-neutral-950/20">

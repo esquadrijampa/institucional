@@ -612,17 +612,10 @@ class ChatManager {
 export const chatManager = new ChatManager();
 
 export function formatTimeOnline(startedAt: string): string {
-  const diffMs = Date.now() - new Date(startedAt).getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-
-  if (diffHr > 0) {
-    const mins = diffMin % 60;
-    return `${diffHr}h ${mins}m`;
+  try {
+    const d = new Date(startedAt);
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
   }
-  if (diffMin > 0) {
-    return `${diffMin}m`;
-  }
-  return `${diffSec}s`;
 }
