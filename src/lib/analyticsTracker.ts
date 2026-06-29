@@ -30,10 +30,14 @@ const SESSION_KEY = 'esquadrijampa_analytics_session_id';
 
 // Helper to get device category
 function getDeviceType(): string {
-  const width = window.innerWidth;
-  if (width < 768) return 'Mobile';
-  if (width < 1024) return 'Tablet';
-  return 'Desktop';
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'Computador';
+  const ua = navigator.userAgent;
+  const isMobileUA = /Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua);
+  const isTabletUA = /(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua);
+  
+  if (isTabletUA) return 'Tablet';
+  if (isMobileUA) return 'Celular';
+  return 'Computador';
 }
 
 // Parse UTM parameters from URL

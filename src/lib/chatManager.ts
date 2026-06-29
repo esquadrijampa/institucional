@@ -16,6 +16,33 @@ import {
 import { sendNewVisitorNotification } from './emailNotifier';
 
 
+interface LocationInfo {
+  city: string;
+  state: string;
+}
+
+async function fetchLocation(): Promise<LocationInfo> {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.city) {
+        return {
+          city: data.city,
+          state: data.region_code || data.region || 'PB'
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch location via IP:", e);
+  }
+  return {
+    city: 'João Pessoa',
+    state: 'PB'
+  };
+}
+
+
 export interface ChatMessage {
   id: string;
   sender: 'visitor' | 'admin' | 'system';
@@ -42,6 +69,10 @@ export interface VisitorSession {
   customName?: string; // Custom display name
   isSimulated?: boolean;
   simulatedPersona?: string; // Type of lead for simulated responses
+  city?: string;
+  state?: string;
+  archived?: boolean;
+  phone?: string;
 }
 
 const CURRENT_VISITOR_KEY = 'esquadrijampa_current_visitor_info';
@@ -73,6 +104,9 @@ const SIMULATED_PERSONAS = [
     clicks: ['cta-home-orcamento'],
     device: 'Desktop',
     referrer: 'Google (Orgânico)',
+    city: 'Cabedelo',
+    state: 'PB',
+    phone: '(83) 98877-6655',
     responses: [
       'Estou construindo uma casa de dois pavimentos no condomínio Alphaville.',
       'Preciso de esquadrias para 3 suítes, mais a pele de vidro da fachada.',
@@ -88,6 +122,9 @@ const SIMULATED_PERSONAS = [
     clicks: ['floating-whatsapp-btn'],
     device: 'Mobile',
     referrer: 'Instagram',
+    city: 'João Pessoa',
+    state: 'PB',
+    phone: '(83) 99123-4567',
     responses: [
       'Estou com um projeto de um consultório de 120m² no Altiplano e o cliente quer a fachada toda em vidro temperado refletivo.',
       'Perfeito, prezo muito pelo acabamento fino e pelo cumprimento de prazos.',
@@ -103,6 +140,9 @@ const SIMULATED_PERSONAS = [
     clicks: ['floating-whatsapp-btn'],
     device: 'Mobile',
     referrer: 'Direto / Favoritos',
+    city: 'João Pessoa',
+    state: 'PB',
+    phone: '(83) 98765-4321',
     responses: [
       'Moro em um apartamento em Manaíra que pega muito sol da tarde na varanda.',
       'Gostaria de brises móveis para poder controlar a entrada de luz.',
@@ -178,7 +218,11 @@ class ChatManager {
         ],
         adminNotes: '',
         isSimulated: true,
-        simulatedPersona: p.persona
+        simulatedPersona: p.persona,
+        city: p.city,
+        state: p.state,
+        phone: p.phone,
+        archived: false
       } as VisitorSession;
     });
 
@@ -247,12 +291,25 @@ class ChatManager {
         pagesPassed: pagesPassed.length > 0 ? pagesPassed : ['/'],
         clicks: analyticsTracker.getClicks().filter(c => c.timestamp),
         messages: [],
-        adminNotes: ''
+        adminNotes: '',
+        phone: storedInfo.phone || '',
+        city: 'João Pessoa',
+        state: 'PB',
+        archived: false
       };
 
       // Add to Firestore database
       this.saveSessionToFirestore(session);
       sendNewVisitorNotification(session);
+
+      // Asynchronously fetch real city/state and update
+      fetchLocation().then(loc => {
+        if (session) {
+          session.city = loc.city;
+          session.state = loc.state;
+          this.saveSessionToFirestore(session);
+        }
+      });
     } else {
       // Update activity status to online
       if (!session.online) {
@@ -265,15 +322,17 @@ class ChatManager {
     return session;
   }
 
-  public registerVisitorName(name: string) {
+  public registerVisitorName(name: string, phone: string = '') {
     const session = this.getOrCreateCurrentVisitor();
     session.visitorName = name;
+    session.phone = phone;
     session.isRegistered = true;
     session.lastActive = new Date().toISOString();
 
     // Store in general visitor configuration so it remembers them next visit
     localStorage.setItem(CURRENT_VISITOR_KEY, JSON.stringify({
       visitorName: name,
+      phone,
       isRegistered: true
     }));
 
@@ -393,6 +452,22 @@ class ChatManager {
     }
   }
 
+  public updateVisitorPhone(sessionId: string, phone: string) {
+    const session = this.sessions.find(s => s.sessionId === sessionId);
+    if (session) {
+      session.phone = phone;
+      this.saveSessionToFirestore(session);
+    }
+  }
+
+  public archiveSession(sessionId: string, archived: boolean = true) {
+    const session = this.sessions.find(s => s.sessionId === sessionId);
+    if (session) {
+      session.archived = archived;
+      this.saveSessionToFirestore(session);
+    }
+  }
+
   public async triggerSimulatedVisitor() {
     const p = SIMULATED_PERSONAS[Math.floor(Math.random() * SIMULATED_PERSONAS.length)];
     const randomId = 'simulated_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -427,7 +502,11 @@ class ChatManager {
       ],
       adminNotes: '',
       isSimulated: true,
-      simulatedPersona: p.persona
+      simulatedPersona: p.persona,
+      city: p.city,
+      state: p.state,
+      phone: p.phone,
+      archived: false
     };
 
     await this.saveSessionToFirestore(newSession);
@@ -457,3 +536,19 @@ class ChatManager {
 }
 
 export const chatManager = new ChatManager();
+
+export function formatTimeOnline(startedAt: string): string {
+  const diffMs = Date.now() - new Date(startedAt).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+
+  if (diffHr > 0) {
+    const mins = diffMin % 60;
+    return `${diffHr}h ${mins}m`;
+  }
+  if (diffMin > 0) {
+    return `${diffMin}m`;
+  }
+  return `${diffSec}s`;
+}

@@ -33,10 +33,11 @@ import {
   Mail,
   ExternalLink,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Archive
 } from 'lucide-react';
 import { analyticsTracker, PageViewEvent, ClickEvent } from '../lib/analyticsTracker';
-import { chatManager, VisitorSession, ChatMessage } from '../lib/chatManager';
+import { chatManager, VisitorSession, ChatMessage, formatTimeOnline } from '../lib/chatManager';
 import { getEmailLogs, EmailLog, sendNewVisitorNotification } from '../lib/emailNotifier';
 import { ActivePage } from '../types';
 
@@ -59,6 +60,10 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [adminMessageInput, setAdminMessageInput] = useState<string>('');
   const [editingNameSessionId, setEditingNameSessionId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState<string>('');
+  const [editingPhoneSessionId, setEditingPhoneSessionId] = useState<string | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState<string>('');
+  const [chatSortBy, setChatSortBy] = useState<'recent' | 'online_time' | 'alphabetical' | 'unread'>('recent');
+  const [currentSubTab, setCurrentSubTab] = useState<'active' | 'archived'>('active');
   const [notesSaveStatus, setNotesSaveStatus] = useState<string>('');
   const [chatSearchTerm, setChatSearchTerm] = useState<string>('');
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
@@ -1385,10 +1390,36 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
             {/* Left Column: Sessions List */}
             <div className="lg:col-span-4 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60">
               <div className="p-4 border-b border-neutral-800 space-y-3">
-                <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-ping shrink-0"></span>
-                  Visitantes Ativos ({chatSessions.filter(s => s.isOnline).length} Online)
-                </h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-ping shrink-0"></span>
+                    Visitantes ({chatSessions.filter(s => s.online).length} Online)
+                  </h3>
+                </div>
+
+                {/* Sub-tabs: Active vs Archived */}
+                <div className="flex gap-2 border-b border-neutral-800 pb-1.5 pt-1 text-[11px] font-semibold text-white">
+                  <button
+                    onClick={() => setCurrentSubTab('active')}
+                    className={`flex-1 pb-1.5 border-b-2 text-center transition-colors cursor-pointer ${
+                      currentSubTab === 'active' 
+                        ? 'border-brand-orange text-white font-bold' 
+                        : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                    }`}
+                  >
+                    Ativos ({chatSessions.filter(s => !s.archived).length})
+                  </button>
+                  <button
+                    onClick={() => setCurrentSubTab('archived')}
+                    className={`flex-1 pb-1.5 border-b-2 text-center transition-colors cursor-pointer ${
+                      currentSubTab === 'archived' 
+                        ? 'border-brand-orange text-white font-bold' 
+                        : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                    }`}
+                  >
+                    Arquivados ({chatSessions.filter(s => s.archived).length})
+                  </button>
+                </div>
                 
                 {/* Search filter for sessions */}
                 <div className="relative">
@@ -1401,28 +1432,70 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                     className="w-full bg-neutral-950 border border-neutral-800 rounded pl-9 pr-4 py-2 text-xs text-neutral-300 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
                   />
                 </div>
+
+                {/* Sorting Select Dropdown */}
+                <div className="flex items-center justify-between gap-1 pt-1">
+                  <span className="text-[10px] text-neutral-500 font-semibold font-mono uppercase tracking-wider">
+                    Ordenar por:
+                  </span>
+                  <select
+                    value={chatSortBy}
+                    onChange={(e) => setChatSortBy(e.target.value as any)}
+                    className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[10px] font-semibold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange text-right"
+                  >
+                    <option value="recent">Mais Recente (Atividade)</option>
+                    <option value="online_time">Tempo no Site</option>
+                    <option value="alphabetical">Nome (A-Z)</option>
+                    <option value="unread">Mensagens não lidas</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto divide-y divide-neutral-800/40">
                 {chatSessions.filter(s => {
                   const term = chatSearchTerm.toLowerCase();
-                  return s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+                  const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+                  const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
+                  return matchesSearch && matchesTab;
                 }).length === 0 ? (
                   <div className="p-8 text-center text-xs text-neutral-500 space-y-2">
                     <User className="w-8 h-8 text-neutral-600 mx-auto" />
                     <p>Nenhum visitante localizado.</p>
-                    <p className="text-[10px] text-neutral-600">Utilize o botão "Simular Cliente" acima para criar um lead de teste!</p>
+                    {currentSubTab === 'active' && (
+                      <p className="text-[10px] text-neutral-600">Utilize o botão "Simular Cliente" acima para criar um lead de teste!</p>
+                    )}
                   </div>
                 ) : (
                   chatSessions
                     .filter(s => {
                       const term = chatSearchTerm.toLowerCase();
-                      return s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+                      const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+                      const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
+                      return matchesSearch && matchesTab;
+                    })
+                    .slice()
+                    .sort((a, b) => {
+                      if (chatSortBy === 'online_time') {
+                        // Longest online (earlier startedAt) first
+                        return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+                      }
+                      if (chatSortBy === 'alphabetical') {
+                        const nameA = (a.customName || a.visitorName).toLowerCase();
+                        const nameB = (b.customName || b.visitorName).toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      }
+                      if (chatSortBy === 'unread') {
+                        const unreadA = a.messages.filter(m => m.sender === 'visitor' && !m.read).length;
+                        const unreadB = b.messages.filter(m => m.sender === 'visitor' && !m.read).length;
+                        return unreadB - unreadA;
+                      }
+                      // Default: recent activity
+                      return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
                     })
                     .map((s) => {
                       const isActive = s.sessionId === selectedSessionId;
                       const unreadMessages = s.messages.filter(m => m.sender === 'visitor' && !m.read);
-                      const isOnline = s.isOnline;
+                      const isOnline = s.online;
                       const lastMsg = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
 
                       return (
@@ -1468,12 +1541,17 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             </p>
 
                             {/* Badges */}
-                            <div className="flex items-center gap-1.5 pt-1 text-[9px] font-mono text-neutral-500">
-                              <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[9px] font-mono text-neutral-500">
+                              <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-brand-orange">
                                 {s.device}
                               </span>
+                              {s.city && (
+                                <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-neutral-300">
+                                  📍 {s.city}
+                                </span>
+                              )}
                               <span className="text-[9px] text-neutral-400">
-                                • {s.visitsCount} {s.visitsCount === 1 ? 'acesso' : 'acessos'}
+                                ⏱️ {formatTimeOnline(s.startedAt)}
                               </span>
                             </div>
                           </div>
@@ -1559,12 +1637,12 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             </button>
 
                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-mono tracking-wide ${
-                              activeSession.isOnline 
+                              activeSession.online 
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
                                 : 'bg-neutral-800 text-neutral-400 border border-neutral-700/55'
                             }`}>
-                              <span className={`w-1 h-1 rounded-full ${activeSession.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
-                              {activeSession.isOnline ? 'Online agora' : 'Offline'}
+                              <span className={`w-1 h-1 rounded-full ${activeSession.online ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
+                              {activeSession.online ? 'Online agora' : 'Offline'}
                             </span>
                           </div>
                         )}
@@ -1575,6 +1653,33 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {activeSession.archived ? (
+                          <button
+                            onClick={() => {
+                              chatManager.archiveSession(activeSession.sessionId, false);
+                              setChatSessions(chatManager.getSessions());
+                            }}
+                            className="px-3 py-2 text-xs font-bold bg-neutral-900 border border-neutral-850 hover:bg-emerald-950/20 hover:text-emerald-400 hover:border-emerald-900/50 rounded transition-all text-neutral-400 cursor-pointer flex items-center gap-1.5"
+                            title="Reabrir Conversa"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            Reabrir Conversa
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              chatManager.archiveSession(activeSession.sessionId, true);
+                              setChatSessions(chatManager.getSessions());
+                              setSelectedSessionId(null);
+                            }}
+                            className="px-3 py-2 text-xs font-bold bg-neutral-900 border border-neutral-850 hover:bg-neutral-800 hover:text-white rounded transition-all text-neutral-300 cursor-pointer flex items-center gap-1.5"
+                            title="Encerrar Conversa e Arquivar"
+                          >
+                            <Archive className="w-3.5 h-3.5 text-neutral-400" />
+                            Encerrar Atendimento
+                          </button>
+                        )}
+
                         <button
                           onClick={() => {
                             if (window.confirm('Deseja excluir esta sessão de atendimento permanentemente?')) {
@@ -1582,7 +1687,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                               setSelectedSessionId(null);
                             }
                           }}
-                          className="p-2 text-xs font-semibold bg-neutral-900 border border-neutral-800 hover:bg-red-950/20 hover:text-red-400 hover:border-red-900/50 rounded transition-all text-neutral-400 cursor-pointer"
+                          className="p-2 text-xs font-semibold bg-neutral-900 border border-neutral-850 hover:bg-red-950/20 hover:text-red-400 hover:border-red-900/50 rounded transition-all text-neutral-400 cursor-pointer"
                           title="Excluir Atendimento"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1664,6 +1769,97 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       {/* Right Side: Visitor Dossier & Notes */}
                       <div className="md:col-span-5 flex flex-col h-full divide-y divide-neutral-800 overflow-y-auto bg-neutral-900/10">
                         
+                        {/* Contact Dossier Card */}
+                        <div className="p-4 space-y-3 bg-neutral-950/20">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-brand-orange" />
+                            Dossiê de Contato & Localização
+                          </span>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            {/* Localização */}
+                            <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
+                              <span className="text-[9px] text-neutral-500 block uppercase">Localização</span>
+                              <span className="text-white font-semibold flex items-center gap-1">
+                                📍 {activeSession.city || 'João Pessoa'}, {activeSession.state || 'PB'}
+                              </span>
+                            </div>
+
+                            {/* Tempo Online */}
+                            <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
+                              <span className="text-[9px] text-neutral-500 block uppercase">Tempo no Site</span>
+                              <span className="text-emerald-400 font-mono font-semibold flex items-center gap-1">
+                                ⏱️ {formatTimeOnline(activeSession.startedAt)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Telefone / WhatsApp */}
+                          <div className="bg-neutral-950 p-3 rounded border border-neutral-850/60 space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] text-neutral-500 uppercase block font-medium">WhatsApp / Telefone</span>
+                              {editingPhoneSessionId !== activeSession.sessionId && (
+                                <button
+                                  onClick={() => {
+                                    setEditingPhoneSessionId(activeSession.sessionId);
+                                    setEditingPhoneValue(activeSession.phone || '');
+                                  }}
+                                  className="text-[9px] text-neutral-400 hover:text-brand-orange flex items-center gap-1 transition-colors cursor-pointer font-bold"
+                                >
+                                  <Edit className="w-3 h-3" /> Editar
+                                </button>
+                              )}
+                            </div>
+
+                            {editingPhoneSessionId === activeSession.sessionId ? (
+                              <form
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  chatManager.updateVisitorPhone(activeSession.sessionId, editingPhoneValue);
+                                  setEditingPhoneSessionId(null);
+                                  setChatSessions(chatManager.getSessions());
+                                }}
+                                className="flex gap-1.5"
+                              >
+                                <input
+                                  type="text"
+                                  value={editingPhoneValue}
+                                  onChange={(e) => setEditingPhoneValue(e.target.value)}
+                                  placeholder="(83) 99999-9999"
+                                  className="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                                  autoFocus
+                                />
+                                <button type="submit" className="px-2 py-1 rounded bg-brand-orange text-white text-[10px] font-bold hover:bg-brand-orange/95 cursor-pointer">
+                                  Salvar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPhoneSessionId(null)}
+                                  className="px-2 py-1 rounded bg-neutral-800 text-neutral-400 text-[10px] font-bold hover:text-white cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                              </form>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <span className="text-white font-bold font-mono text-xs">
+                                  {activeSession.phone || 'Não informado'}
+                                </span>
+                                {activeSession.phone && (
+                                  <a
+                                    href={`https://wa.me/55${activeSession.phone.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    referrerPolicy="no-referrer"
+                                    className="inline-flex items-center gap-1 text-[10px] bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 font-bold px-2 py-1 rounded border border-emerald-500/20 transition-colors"
+                                  >
+                                    Fale no WhatsApp
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Note block */}
                         <div className="p-4 space-y-2 shrink-0">
                           <div className="flex justify-between items-center">

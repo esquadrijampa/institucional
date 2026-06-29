@@ -12,8 +12,11 @@ export default function VisitorChatWidget() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [session, setSession] = useState<VisitorSession | null>(null);
   const [nameInput, setNameInput] = useState<string>('');
+  const [phoneInput, setPhoneInput] = useState<string>('');
   const [messageInput, setMessageInput] = useState<string>('');
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [lastAdminMessage, setLastAdminMessage] = useState<string | null>(null);
+  const [showAdminToast, setShowAdminToast] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load and subscribe to chat session updates
@@ -38,6 +41,29 @@ export default function VisitorChatWidget() {
     };
   }, []);
 
+  // Monitor incoming admin messages to show a prominent overlay/toast
+  useEffect(() => {
+    if (session && session.messages.length > 0) {
+      const adminMessages = session.messages.filter(m => m.sender === 'admin');
+      if (adminMessages.length > 0) {
+        const lastAdminMsg = adminMessages[adminMessages.length - 1];
+        if (!lastAdminMsg.read) {
+          setLastAdminMessage(lastAdminMsg.text);
+          if (!isOpen) {
+            setShowAdminToast(true);
+          }
+        }
+      }
+    }
+  }, [session?.messages, isOpen]);
+
+  // Close toast when widget is opened
+  useEffect(() => {
+    if (isOpen) {
+      setShowAdminToast(false);
+    }
+  }, [isOpen]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -57,7 +83,7 @@ export default function VisitorChatWidget() {
   const handleRegisterName = (e: FormEvent) => {
     e.preventDefault();
     if (nameInput.trim()) {
-      chatManager.registerVisitorName(nameInput.trim());
+      chatManager.registerVisitorName(nameInput.trim(), phoneInput.trim());
     }
   };
 
@@ -77,6 +103,48 @@ export default function VisitorChatWidget() {
 
   return (
     <div className="fixed bottom-6 right-6 z-[9999] font-sans" id="chat-widget-root">
+      {/* Speech Bubble / Toast for Admin Messages */}
+      <AnimatePresence>
+        {!isOpen && showAdminToast && lastAdminMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 15, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 15, scale: 0.9 }}
+            className="absolute bottom-18 right-0 w-[280px] bg-neutral-900 border border-neutral-800 text-white rounded-xl p-4 shadow-2xl flex flex-col gap-2.5 z-50 font-sans"
+          >
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+              <span className="text-[10px] uppercase font-bold text-brand-orange tracking-widest font-mono flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-brand-orange rounded-full animate-pulse"></span>
+                Atendimento Esquadrijampa
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAdminToast(false);
+                }}
+                className="text-neutral-400 hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-neutral-200 leading-relaxed font-medium bg-neutral-950/40 p-2.5 rounded border border-neutral-800">
+              "{lastAdminMessage}"
+            </p>
+            
+            <button
+              onClick={() => {
+                setIsOpen(true);
+                setShowAdminToast(false);
+              }}
+              className="w-full bg-brand-orange hover:bg-brand-orange/90 text-white text-[10px] font-bold uppercase py-1.5 rounded tracking-wider transition-colors text-center cursor-pointer"
+            >
+              Responder ao vivo
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Floating Launcher Button */}
       <motion.button
         onClick={handleChatToggle}
@@ -154,9 +222,16 @@ export default function VisitorChatWidget() {
                       onChange={(e) => setNameInput(e.target.value)}
                       className="w-full text-xs text-neutral-800 bg-white border border-neutral-300 rounded p-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange text-center"
                     />
+                    <input
+                      type="tel"
+                      placeholder="WhatsApp / Telefone"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      className="w-full text-xs text-neutral-800 bg-white border border-neutral-300 rounded p-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange text-center"
+                    />
                     <button
                       type="submit"
-                      className="w-full bg-brand-orange hover:bg-brand-orange-hover text-white py-2 px-4 rounded text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+                      className="w-full bg-brand-orange hover:bg-brand-orange/90 text-white py-2 px-4 rounded text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
                     >
                       Iniciar Atendimento
                     </button>
