@@ -1,0 +1,151 @@
+{
+  "entities": {
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single chat message in a session conversation",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique message identifier"
+        },
+        "sender": {
+          "type": "string",
+          "enum": ["visitor", "admin", "system"],
+          "description": "Who sent the message"
+        },
+        "text": {
+          "type": "string",
+          "description": "Message content"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of when the message was sent"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the message has been read by the counterpart"
+        }
+      },
+      "required": ["id", "sender", "text", "timestamp", "read"]
+    },
+    "ClickEvent": {
+      "title": "ClickEvent",
+      "description": "An interaction tracking event clicked by the visitor",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The visible text of the clicked element"
+        },
+        "elementId": {
+          "type": "string",
+          "description": "HTML id of the element"
+        },
+        "elementClass": {
+          "type": "string",
+          "description": "CSS classes of the element"
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of click event"
+        },
+        "path": {
+          "type": "string",
+          "description": "The URL path where the click occurred"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of the event"
+        }
+      },
+      "required": ["text", "timestamp"]
+    },
+    "VisitorSession": {
+      "title": "VisitorSession",
+      "description": "Active navigation session and chat thread for a visitor",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Unique session identifier"
+        },
+        "visitorName": {
+          "type": "string",
+          "description": "Visitor identifier name or nickname"
+        },
+        "isRegistered": {
+          "type": "boolean",
+          "description": "Whether the visitor registered their name"
+        },
+        "online": {
+          "type": "boolean",
+          "description": "Whether the visitor is currently online"
+        },
+        "lastActive": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of last activity"
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of when the session was created"
+        },
+        "device": {
+          "type": "string",
+          "description": "Device category (e.g. Mobile, Desktop)"
+        },
+        "referrer": {
+          "type": "string",
+          "description": "Referrer source that led the user to the site"
+        },
+        "visitsCount": {
+          "type": "number",
+          "description": "Total historical visits count"
+        },
+        "pagesPassed": {
+          "type": "array",
+          "description": "List of URLs visited during this session"
+        },
+        "clicks": {
+          "type": "array",
+          "description": "Tracked click actions by the visitor"
+        },
+        "messages": {
+          "type": "array",
+          "description": "Conversation message history"
+        },
+        "adminNotes": {
+          "type": "string",
+          "description": "Internal notes added by the attendant"
+        },
+        "customAttendantName": {
+          "type": "string",
+          "description": "Custom name assigned by the admin"
+        },
+        "customName": {
+          "type": "string",
+          "description": "Custom display name for the visitor"
+        },
+        "isSimulated": {
+          "type": "boolean",
+          "description": "Whether this is a simulated demo lead"
+        },
+        "simulatedPersona": {
+          "type": "string",
+          "description": "The business case or persona of the simulated visitor"
+        }
+      },
+      "required": ["sessionId", "visitorName", "isRegistered", "online", "lastActive", "startedAt", "visitsCount", "pagesPassed", "clicks", "messages", "adminNotes"]
+    }
+  },
+  "firestore": {
+    "/sessions/{sessionId}": {
+      "schema": "VisitorSession",
+      "description": "Collection of all real-time visitor sessions and chats"
+    }
+  }
+}

@@ -145,7 +145,16 @@ export default function Footer({ setActivePage }: FooterProps) {
         {/* Separator and copyright */}
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-gray-500 font-sans">
           <div className="flex flex-col gap-1 text-center md:text-left">
-            <p>© {new Date().getFullYear()} Esquadrijampa. Todos os direitos reservados. Fabricação e instalação sob medida.</p>
+            <p>
+              © {new Date().getFullYear()} Esquadrijampa. Todos os direitos reservados. Fabricação e instalação sob medida.
+              <button 
+                onClick={() => handleNavigate(ActivePage.Dashboard)} 
+                className="ml-2 text-gray-600 hover:text-brand-orange hover:underline transition-colors focus:outline-none cursor-pointer inline-flex items-center gap-0.5"
+                title="Acesso Administrativo"
+              >
+                • Painel
+              </button>
+            </p>
             <p className="font-mono tracking-wider text-[10px] uppercase text-gray-400">Do Projeto à Obra Concluída</p>
           </div>
           

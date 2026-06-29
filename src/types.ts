@@ -11,7 +11,8 @@ export enum ActivePage {
   Vidros = 'vidros',
   Portfolio = 'portfolio',
   SobreNos = 'sobrenos',
-  Contato = 'contato'
+  Contato = 'contato',
+  Dashboard = 'dashboard'
 }
 
 export interface PortfolioItem {

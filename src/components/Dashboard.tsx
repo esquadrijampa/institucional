@@ -1,0 +1,1755 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
+import { 
+  BarChart3, 
+  MousePointerClick, 
+  Globe, 
+  Smartphone, 
+  Layers, 
+  LogOut, 
+  Clock, 
+  Calendar,
+  Lock, 
+  CheckCircle, 
+  RefreshCw,
+  Search,
+  ChevronRight,
+  TrendingUp,
+  AlertCircle,
+  MessageSquare,
+  Send,
+  User,
+  Edit,
+  FileText,
+  History,
+  Trash2,
+  Sparkles,
+  Check,
+  X,
+  Mail,
+  ExternalLink,
+  AlertTriangle,
+  CheckCircle2
+} from 'lucide-react';
+import { analyticsTracker, PageViewEvent, ClickEvent } from '../lib/analyticsTracker';
+import { chatManager, VisitorSession, ChatMessage } from '../lib/chatManager';
+import { getEmailLogs, EmailLog, sendNewVisitorNotification } from '../lib/emailNotifier';
+import { ActivePage } from '../types';
+
+interface DashboardProps {
+  onBackToHome: () => void;
+}
+
+export default function Dashboard({ onBackToHome }: DashboardProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [password, setPassword] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [timeRange, setTimeRange] = useState<'7' | '14' | '30'>('14');
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Live Chat system state variables
+  const [activeTab, setActiveTab] = useState<'metrics' | 'chat'>('metrics');
+  const [chatSessions, setChatSessions] = useState<VisitorSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [adminMessageInput, setAdminMessageInput] = useState<string>('');
+  const [editingNameSessionId, setEditingNameSessionId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState<string>('');
+  const [notesSaveStatus, setNotesSaveStatus] = useState<string>('');
+  const [chatSearchTerm, setChatSearchTerm] = useState<string>('');
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Email Notification system states
+  const [showEmailConfig, setShowEmailConfig] = useState<boolean>(false);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState<boolean>(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+
+
+  // Auto-authenticate if session token exists
+  useEffect(() => {
+    const auth = sessionStorage.getItem('esquadrijampa_admin_auth');
+    if (auth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // Handle Login submission
+  const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    if (password === '123456') {
+      setIsAuthenticated(true);
+      setError('');
+      sessionStorage.setItem('esquadrijampa_admin_auth', 'true');
+    } else {
+      setError('Senha incorreta. Tente novamente.');
+      setPassword('');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('esquadrijampa_admin_auth');
+    onBackToHome();
+  };
+
+  // State to hold raw tracking records
+  const [views, setViews] = useState<PageViewEvent[]>([]);
+  const [clicks, setClicks] = useState<ClickEvent[]>([]);
+
+  // Load tracking records
+  const loadData = () => {
+    setViews(analyticsTracker.getViews());
+    setClicks(analyticsTracker.getClicks());
+  };
+
+  // Real-time listener and poller
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadData();
+      setChatSessions(chatManager.getSessions());
+
+      // Subscribe to real-time cross-tab chat changes
+      const unsubscribeChat = chatManager.subscribe(() => {
+        setChatSessions(chatManager.getSessions());
+      });
+
+      // Poll page logs and update active session durations
+      const interval = setInterval(() => {
+        loadData();
+        chatManager.updateOnlineStates();
+      }, 5000);
+
+      return () => {
+        unsubscribeChat();
+        clearInterval(interval);
+      };
+    }
+  }, [isAuthenticated]);
+
+  // Scroll to bottom on new admin chat messages
+  useEffect(() => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [selectedSessionId, chatSessions]);
+
+  // Load and subscribe to email notification logs
+  useEffect(() => {
+    if (isAuthenticated) {
+      setEmailLogs(getEmailLogs());
+      
+      const handleLogsUpdate = () => {
+        setEmailLogs(getEmailLogs());
+      };
+      
+      window.addEventListener('esquadrijampa_email_logs_updated', handleLogsUpdate);
+      return () => {
+        window.removeEventListener('esquadrijampa_email_logs_updated', handleLogsUpdate);
+      };
+    }
+  }, [isAuthenticated]);
+
+  const handleResetData = () => {
+    if (window.confirm('Deseja redefinir os dados para o padrão simulado de 30 dias? Eventos de teste atuais serão mesclados.')) {
+      analyticsTracker.clearAll();
+      loadData();
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setIsSendingTestEmail(true);
+    setTestEmailResult(null);
+    
+    // Create a dummy visitor session for the test email
+    const dummySession: VisitorSession = {
+      sessionId: 'test_' + Date.now(),
+      visitorName: 'Visitante de Teste',
+      isRegistered: true,
+      online: true,
+      lastActive: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+      device: 'Desktop (Simulado)',
+      referrer: 'Painel Administrativo (Teste de Alerta)',
+      visitsCount: 1,
+      pagesPassed: ['/contato', '/portfolio'],
+      clicks: [],
+      messages: [],
+      adminNotes: 'Esta é uma mensagem automática de teste para validar o funcionamento do EmailJS.'
+    };
+    
+    const success = await sendNewVisitorNotification(dummySession);
+    setIsSendingTestEmail(false);
+    
+    if (success) {
+      setTestEmailResult({
+        success: true,
+        message: 'E-mail de teste enviado com sucesso! Verifique sua caixa de entrada.'
+      });
+    } else {
+      setTestEmailResult({
+        success: false,
+        message: 'Falha no envio de e-mail real. Mas não se preocupe: a simulação foi registrada nas notas abaixo!'
+      });
+    }
+    
+    // Auto-clear result after 6 seconds
+    setTimeout(() => {
+      setTestEmailResult(null);
+    }, 6000);
+  };
+
+  // Count unread customer messages for notification badges
+  const unreadCount = useMemo(() => {
+    return chatSessions.reduce((acc, s) => acc + s.messages.filter(m => m.sender === 'visitor' && !m.read).length, 0);
+  }, [chatSessions]);
+
+  // Computed data based on selected time range
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    const thresholdDate = new Date();
+    thresholdDate.setDate(now.getDate() - parseInt(timeRange));
+
+    const rangeViews = views.filter(v => new Date(v.timestamp) >= thresholdDate);
+    const rangeClicks = clicks.filter(c => new Date(c.timestamp) >= thresholdDate);
+
+    return {
+      views: rangeViews,
+      clicks: rangeClicks,
+    };
+  }, [views, clicks, timeRange]);
+
+  // Aggregate stats
+  const stats = useMemo(() => {
+    const v = filteredData.views;
+    const c = filteredData.clicks;
+
+    // Estimate unique visitors based on combinations of referrer + device + date (or actual session tracker)
+    const visitorKeys = new Set();
+    v.forEach(view => {
+      const dt = view.timestamp.split('T')[0];
+      visitorKeys.add(`${view.referrer}_${view.device}_${dt}`);
+    });
+
+    const uniqueVisitorsCount = Math.max(1, visitorKeys.size);
+    const totalPageviews = v.length;
+    const whatsappClicks = c.filter(click => click.elementId === 'floating-whatsapp-btn').length;
+    const totalConversions = c.length;
+    
+    const conversionRate = uniqueVisitorsCount > 0 
+      ? ((totalConversions / uniqueVisitorsCount) * 100).toFixed(1) 
+      : '0.0';
+
+    const avgPageviewsPerVisitor = uniqueVisitorsCount > 0 
+      ? (totalPageviews / uniqueVisitorsCount).toFixed(1) 
+      : '1.0';
+
+    return {
+      visitors: uniqueVisitorsCount,
+      pageviews: totalPageviews,
+      conversions: totalConversions,
+      whatsappClicks,
+      conversionRate,
+      avgPageviews: avgPageviewsPerVisitor,
+    };
+  }, [filteredData]);
+
+  // Daily Chart aggregation (Views & Visits over selected days)
+  const chartData = useMemo(() => {
+    const days = parseInt(timeRange);
+    const data: Array<{ dateStr: string; label: string; views: number; visits: number }> = [];
+    const now = new Date();
+
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const yyyymmdd = d.toISOString().split('T')[0];
+
+      // Views for this day
+      const dayViews = filteredData.views.filter(v => v.timestamp.startsWith(yyyymmdd));
+      
+      // Visits for this day
+      const visitorKeys = new Set();
+      dayViews.forEach(view => {
+        visitorKeys.add(`${view.referrer}_${view.device}`);
+      });
+      const dayVisits = Math.max(dayViews.length > 0 ? 1 : 0, visitorKeys.size);
+
+      // Formatting label e.g., "25 Jun"
+      const label = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+
+      data.push({
+        dateStr: yyyymmdd,
+        label,
+        views: dayViews.length,
+        visits: dayVisits,
+      });
+    }
+
+    return data;
+  }, [filteredData, timeRange]);
+
+  // Traffic Sources aggregation
+  const trafficSources = useMemo(() => {
+    const sourcesMap: Record<string, { count: number; name: string }> = {};
+    filteredData.views.forEach(v => {
+      let src = v.referrer || 'Direto / Favoritos';
+      if (v.utmSource) {
+        src = `${v.utmSource.toUpperCase()} (${v.utmMedium || 'cpc'})`;
+      }
+      sourcesMap[src] = sourcesMap[src] || { count: 0, name: src };
+      sourcesMap[src].count++;
+    });
+
+    return Object.values(sourcesMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [filteredData]);
+
+  // Device distribution
+  const deviceStats = useMemo(() => {
+    let mobile = 0, desktop = 0, tablet = 0;
+    filteredData.views.forEach(v => {
+      const dev = v.device?.toLowerCase() || '';
+      if (dev.includes('mobile')) mobile++;
+      else if (dev.includes('tablet')) tablet++;
+      else desktop++;
+    });
+
+    const total = Math.max(1, mobile + desktop + tablet);
+    return [
+      { name: 'Celulares', count: mobile, percentage: ((mobile / total) * 100).toFixed(0) },
+      { name: 'Computadores', count: desktop, percentage: ((desktop / total) * 100).toFixed(0) },
+      { name: 'Tablets', count: tablet, percentage: ((tablet / total) * 100).toFixed(0) },
+    ];
+  }, [filteredData]);
+
+  // Most Visited Pages
+  const pageStats = useMemo(() => {
+    const pagesMap: Record<string, { path: string; title: string; count: number }> = {};
+    filteredData.views.forEach(v => {
+      const cleanPath = v.path || '/';
+      pagesMap[cleanPath] = pagesMap[cleanPath] || { path: cleanPath, title: v.title, count: 0 };
+      pagesMap[cleanPath].count++;
+    });
+
+    return Object.values(pagesMap)
+      .sort((a, b) => b.count - a.count);
+  }, [filteredData]);
+
+  // Filter and highlight recent clicks
+  const recentClicksList = useMemo(() => {
+    let list = clicks;
+    if (searchTerm) {
+      list = clicks.filter(c => 
+        c.text.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        c.elementId.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        c.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    // Sort descending by time
+    return list.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 15);
+  }, [clicks, searchTerm]);
+
+  // Calculate coordinates for SVG line chart dynamically
+  const svgCoordinates = useMemo(() => {
+    if (chartData.length === 0) return { viewPath: '', visitPath: '', points: [] };
+
+    const width = 800;
+    const height = 240;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    // Find max value for scaling
+    const maxVal = Math.max(
+      ...chartData.map(d => Math.max(d.views, d.visits)),
+      10 // Default minimum ceiling
+    );
+
+    const stepX = chartWidth / (chartData.length - 1 || 1);
+
+    const points = chartData.map((d, index) => {
+      const x = paddingLeft + index * stepX;
+      // SVG Y starts from top, so we invert
+      const viewY = paddingTop + chartHeight - (d.views / maxVal) * chartHeight;
+      const visitY = paddingTop + chartHeight - (d.visits / maxVal) * chartHeight;
+      return { x, viewY, visitY, data: d, index };
+    });
+
+    // Create curved paths
+    let viewPath = '';
+    let visitPath = '';
+
+    if (points.length > 0) {
+      viewPath = `M ${points[0].x} ${points[0].viewY}`;
+      visitPath = `M ${points[0].x} ${points[0].visitY}`;
+
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        // Control points for bezier curves
+        const cpX1 = prev.x + stepX / 3;
+        const cpY1_view = prev.viewY;
+        const cpX2 = curr.x - stepX / 3;
+        const cpY2_view = curr.viewY;
+
+        viewPath += ` C ${cpX1} ${cpY1_view}, ${cpX2} ${cpY2_view}, ${curr.x} ${curr.viewY}`;
+
+        const cpY1_visit = prev.visitY;
+        const cpY2_visit = curr.visitY;
+        visitPath += ` C ${cpX1} ${cpY1_visit}, ${cpX2} ${cpY2_visit}, ${curr.x} ${curr.visitY}`;
+      }
+    }
+
+    return { viewPath, visitPath, points, maxVal, chartHeight, paddingTop, paddingLeft, chartWidth };
+  }, [chartData]);
+
+  // Time format helper (Relative text)
+  const formatTimeAgo = (isoString: string) => {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 1) return 'Agora mesmo';
+    if (diffMins < 60) return `Há ${diffMins} min`;
+    if (diffHours < 24) return `Há ${diffHours} h`;
+    return new Date(isoString).toLocaleDateString('pt-BR', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Render Login interface if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-neutral-900 flex flex-col justify-center items-center px-4 font-sans text-neutral-200">
+        <div className="absolute top-6 left-6">
+          <button
+            onClick={onBackToHome}
+            className="flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 hover:text-white transition-colors duration-200"
+          >
+            ← Voltar ao Início
+          </button>
+        </div>
+
+        <div className="w-full max-w-md bg-neutral-800 border border-neutral-700/80 p-8 rounded shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-orange/10 text-brand-orange border border-brand-orange/20 mb-2">
+              <Lock className="w-5 h-5" />
+            </div>
+            <h1 className="text-2xl font-semibold text-white tracking-tight">Acesso Restrito</h1>
+            <p className="text-xs text-neutral-400 max-w-xs mx-auto">
+              Digite a senha administrativa para consultar o painel de métricas do site Esquadrijampa.
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider text-neutral-400 font-semibold mb-2">
+                Senha Administrativa
+              </label>
+              <input
+                type="password"
+                placeholder="******"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 text-white focus:outline-none focus:ring-1 focus:ring-brand-orange text-center tracking-[0.3em] font-mono text-lg transition-all"
+                autoFocus
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/40 border border-red-900/60 p-3 rounded">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-brand-orange hover:bg-brand-orange-hover text-white py-3 font-semibold rounded transition-colors text-sm uppercase tracking-wider shadow-lg shadow-brand-orange/10"
+            >
+              Autenticar Painel
+            </button>
+          </form>
+
+          <div className="border-t border-neutral-700/50 pt-4 text-center">
+            <span className="text-[10px] text-neutral-500 font-mono uppercase tracking-widest">
+              Esquadrijampa Analytics Engine v1.1
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Active highlighted day
+  const highlightedDay = selectedDayIndex !== null ? chartData[selectedDayIndex] : null;
+
+  return (
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans pb-16 selection:bg-brand-orange/30">
+      
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-50 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded bg-brand-orange/10 flex items-center justify-center text-brand-orange border border-brand-orange/20">
+            {activeTab === 'metrics' ? <BarChart3 className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold text-white">
+                {activeTab === 'metrics' ? 'Painel de Métricas' : 'Mesa de Atendimento'}
+              </h1>
+              <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                Ativo
+              </span>
+            </div>
+            <p className="text-xs text-neutral-400">
+              {activeTab === 'metrics' 
+                ? 'Dados de tráfego e comportamento do usuário' 
+                : 'Monitoramento de visitantes e chat em tempo real'}
+            </p>
+          </div>
+        </div>
+
+        {/* Tab Controls (Centralized) */}
+        <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs">
+          <button
+            onClick={() => setActiveTab('metrics')}
+            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer ${
+              activeTab === 'metrics' 
+                ? 'bg-neutral-800 text-brand-orange shadow-md' 
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Métricas de Tráfego
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('chat');
+              // Auto-select first session if nothing selected yet
+              if (!selectedSessionId && chatSessions.length > 0) {
+                const first = chatSessions[0];
+                setSelectedSessionId(first.sessionId);
+                chatManager.markAsRead(first.sessionId);
+              }
+            }}
+            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer relative ${
+              activeTab === 'chat' 
+                ? 'bg-neutral-800 text-brand-orange shadow-md' 
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Chat & Visitantes
+            
+            {unreadCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-brand-orange text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+          {activeTab === 'metrics' && (
+            <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs">
+              <button
+                onClick={() => setTimeRange('7')}
+                className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '7' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+              >
+                7 dias
+              </button>
+              <button
+                onClick={() => setTimeRange('14')}
+                className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '14' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+              >
+                14 dias
+              </button>
+              <button
+                onClick={() => setTimeRange('30')}
+                className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '30' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+              >
+                30 dias
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'chat' && (
+            <>
+              <button
+                onClick={() => {
+                  setShowEmailConfig(!showEmailConfig);
+                }}
+                className={`flex items-center gap-2 text-xs font-semibold border px-3.5 py-2.5 rounded transition-all cursor-pointer ${
+                  showEmailConfig
+                    ? 'bg-brand-orange border-brand-orange text-white hover:bg-brand-orange/90'
+                    : 'bg-neutral-900 border-neutral-800 hover:bg-neutral-800 text-neutral-300'
+                }`}
+              >
+                <Mail className={`w-3.5 h-3.5 ${showEmailConfig ? 'text-white' : 'text-brand-orange'}`} />
+                Alertas por E-mail
+              </button>
+
+              <button
+                onClick={() => {
+                  if (window.confirm('Deseja iniciar um visitante simulado para testar o atendimento?')) {
+                    chatManager.triggerSimulatedVisitor();
+                    setChatSessions(chatManager.getSessions());
+                  }
+                }}
+                className="flex items-center gap-2 text-xs font-semibold bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 px-3.5 py-2.5 rounded text-neutral-300 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-brand-orange" />
+                Simular Cliente
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={handleResetData}
+            title="Redefinir histórico simulado"
+            className="p-2.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white transition-colors hover:bg-neutral-800 cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-xs font-semibold bg-neutral-800 hover:bg-red-950/30 hover:border-red-900/40 hover:text-red-400 px-4 py-2.5 rounded border border-neutral-700 transition-all text-neutral-300 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sair
+          </button>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-6 pt-8 space-y-8 animate-fade-in">
+        {activeTab === 'metrics' ? (
+          <>
+            {/* KPI Dashboard Cards */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          <div className="bg-neutral-900 border border-neutral-800/80 p-5 rounded relative overflow-hidden group hover:border-neutral-700 transition-colors">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 font-mono">Visitas Únicas</span>
+              <div className="p-1.5 rounded bg-blue-500/5 text-blue-400 border border-blue-500/10">
+                <Globe className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-4 space-y-1">
+              <h2 className="text-3xl font-bold tracking-tight text-white">{stats.visitors}</h2>
+              <p className="text-[11px] text-neutral-500 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3 text-emerald-400" />
+                Aumento gradual em canais orgânicos
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800/80 p-5 rounded relative overflow-hidden group hover:border-neutral-700 transition-colors">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 font-mono">Visualizações de Páginas</span>
+              <div className="p-1.5 rounded bg-purple-500/5 text-purple-400 border border-purple-500/10">
+                <Layers className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-4 space-y-1">
+              <h2 className="text-3xl font-bold tracking-tight text-white">{stats.pageviews}</h2>
+              <p className="text-[11px] text-neutral-400 font-mono">
+                Média de <span className="text-brand-orange font-bold">{stats.avgPageviews}</span> páginas/visita
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800/80 p-5 rounded relative overflow-hidden group hover:border-neutral-700 transition-colors">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 font-mono">Conversões Totais</span>
+              <div className="p-1.5 rounded bg-brand-orange/5 text-brand-orange border border-brand-orange/10">
+                <MousePointerClick className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-4 space-y-1">
+              <h2 className="text-3xl font-bold tracking-tight text-white">{stats.conversions}</h2>
+              <p className="text-[11px] text-neutral-400 font-mono">
+                Cliques WhatsApp: <span className="text-emerald-400 font-bold">{stats.whatsappClicks}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800/80 p-5 rounded relative overflow-hidden group hover:border-neutral-700 transition-colors">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 font-mono">Taxa de Conversão</span>
+              <div className="p-1.5 rounded bg-emerald-500/5 text-emerald-400 border border-emerald-500/10">
+                <CheckCircle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-4 space-y-1">
+              <h2 className="text-3xl font-bold tracking-tight text-white">{stats.conversionRate}%</h2>
+              <p className="text-[11px] text-neutral-500">
+                Proporção de visitantes que iniciam contato
+              </p>
+            </div>
+          </div>
+
+        </section>
+
+        {/* Visual Analytics Chart Block */}
+        <section className="bg-neutral-900 border border-neutral-800/80 p-6 rounded space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-neutral-800 pb-4">
+            <div>
+              <h3 className="text-base font-semibold text-white">Fluxo de Tráfego Diário</h3>
+              <p className="text-xs text-neutral-400">Comparativo diário de visualizações de páginas versus acessos únicos</p>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-1 bg-brand-orange rounded-full inline-block"></span>
+                <span className="text-neutral-400">Visualizações ({stats.pageviews})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-1 bg-blue-500 rounded-full inline-block"></span>
+                <span className="text-neutral-400">Acessos Únicos ({stats.visitors})</span>
+              </div>
+            </div>
+          </div>
+
+          {/* SVG Line Chart (Highly responsive, zero library risks) */}
+          <div className="relative">
+            <div className="w-full overflow-hidden">
+              <svg 
+                viewBox="0 0 800 240" 
+                className="w-full h-auto overflow-visible select-none"
+                style={{ contentVisibility: 'auto' }}
+              >
+                {/* Definitions for Gradients */}
+                <defs>
+                  <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
+                  </linearGradient>
+                  <linearGradient id="visitsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Grid Lines */}
+                {[0, 0.25, 0.5, 0.75, 1].map((p, idx) => {
+                  const y = svgCoordinates.paddingTop + svgCoordinates.chartHeight * p;
+                  const val = Math.round(svgCoordinates.maxVal * (1 - p));
+                  return (
+                    <g key={idx} className="opacity-40">
+                      <line 
+                        x1={svgCoordinates.paddingLeft} 
+                        y1={y} 
+                        x2={svgCoordinates.paddingLeft + svgCoordinates.chartWidth} 
+                        y2={y} 
+                        stroke="#262626" 
+                        strokeWidth="1" 
+                        strokeDasharray="4"
+                      />
+                      <text 
+                        x={svgCoordinates.paddingLeft - 8} 
+                        y={y + 4} 
+                        fill="#737373" 
+                        fontSize="9" 
+                        textAnchor="end"
+                        className="font-mono"
+                      >
+                        {val}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* SVG Area Fills */}
+                <path
+                  d={`${svgCoordinates.viewPath} L ${svgCoordinates.points[svgCoordinates.points.length - 1]?.x} ${svgCoordinates.paddingTop + svgCoordinates.chartHeight} L ${svgCoordinates.points[0]?.x} ${svgCoordinates.paddingTop + svgCoordinates.chartHeight} Z`}
+                  fill="url(#viewsGrad)"
+                />
+                <path
+                  d={`${svgCoordinates.visitPath} L ${svgCoordinates.points[svgCoordinates.points.length - 1]?.x} ${svgCoordinates.paddingTop + svgCoordinates.chartHeight} L ${svgCoordinates.points[0]?.x} ${svgCoordinates.paddingTop + svgCoordinates.chartHeight} Z`}
+                  fill="url(#visitsGrad)"
+                />
+
+                {/* Line Paths */}
+                <path
+                  d={svgCoordinates.viewPath}
+                  fill="none"
+                  stroke="#f97316"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d={svgCoordinates.visitPath}
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Hover Interaction Areas */}
+                {svgCoordinates.points.map((pt, idx) => {
+                  return (
+                    <g key={idx}>
+                      {/* Vertical line indicator on hover */}
+                      {selectedDayIndex === idx && (
+                        <line
+                          x1={pt.x}
+                          y1={svgCoordinates.paddingTop}
+                          x2={pt.x}
+                          y2={svgCoordinates.paddingTop + svgCoordinates.chartHeight}
+                          stroke="#525252"
+                          strokeWidth="1"
+                          strokeDasharray="2"
+                        />
+                      )}
+
+                      {/* Hotspot anchor */}
+                      <rect
+                        x={pt.x - 10}
+                        y={svgCoordinates.paddingTop}
+                        width="20"
+                        height={svgCoordinates.chartHeight}
+                        fill="transparent"
+                        className="cursor-pointer"
+                        onMouseEnter={() => setSelectedDayIndex(idx)}
+                        onMouseLeave={() => setSelectedDayIndex(null)}
+                      />
+
+                      {/* Highlight circles */}
+                      {selectedDayIndex === idx && (
+                        <>
+                          <circle cx={pt.x} cy={pt.viewY} r="5" fill="#f97316" stroke="#ffffff" strokeWidth="1.5" />
+                          <circle cx={pt.x} cy={pt.visitY} r="4" fill="#3b82f6" stroke="#ffffff" strokeWidth="1.5" />
+                        </>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {/* Bottom X-Axis labels */}
+                {chartData.map((d, idx) => {
+                  // Show labels conditionally to avoid congestion
+                  const showLabel = chartData.length > 15 ? idx % 2 === 0 : true;
+                  if (!showLabel) return null;
+
+                  const pt = svgCoordinates.points[idx];
+                  if (!pt) return null;
+
+                  return (
+                    <text
+                      key={idx}
+                      x={pt.x}
+                      y={svgCoordinates.paddingTop + svgCoordinates.chartHeight + 18}
+                      fill="#737373"
+                      fontSize="9"
+                      textAnchor="middle"
+                      className="font-mono font-medium uppercase"
+                    >
+                      {d.label}
+                    </text>
+                  );
+                })}
+              </svg>
+            </div>
+
+            {/* Floating Info Tooltip */}
+            {highlightedDay && (
+              <div 
+                className="absolute top-4 left-1/2 -translate-x-1/2 bg-neutral-900 border border-neutral-700 p-3 rounded shadow-xl flex items-center gap-6 text-xs text-neutral-300 font-mono transition-all z-10 animate-fade-in"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                  <span className="font-semibold text-white uppercase">{new Date(highlightedDay.dateStr).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                </div>
+                <div className="h-4 w-[1px] bg-neutral-800"></div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-brand-orange"></span>
+                  <span>Visualizações: <strong className="text-white">{highlightedDay.views}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span>Únicos: <strong className="text-white">{highlightedDay.visits}</strong></span>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Breakdowns section */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Traffic Channels */}
+          <div className="bg-neutral-900 border border-neutral-800/80 p-6 rounded lg:col-span-4 flex flex-col space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-wider font-mono">
+                <Globe className="w-4 h-4 text-brand-orange" />
+                Origens de Tráfego
+              </h3>
+              <p className="text-xs text-neutral-400">Principais canais que trouxeram visitas ao site</p>
+            </div>
+
+            <div className="flex-1 space-y-4">
+              {trafficSources.length === 0 ? (
+                <div className="text-center text-xs text-neutral-500 py-12">Nenhum dado registrado neste intervalo.</div>
+              ) : (
+                trafficSources.map((source, idx) => {
+                  const maxCount = Math.max(...trafficSources.map(s => s.count), 1);
+                  const percentage = ((source.count / stats.pageviews) * 100).toFixed(0);
+                  const widthPercent = (source.count / maxCount) * 100;
+
+                  return (
+                    <div key={idx} className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-neutral-300 font-medium truncate max-w-[200px]" title={source.name}>
+                          {source.name}
+                        </span>
+                        <span className="text-neutral-400 font-mono">
+                          {source.count} <span className="text-[10px] text-neutral-500">({percentage}%)</span>
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-neutral-950 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-brand-orange/80 rounded-full transition-all duration-500"
+                          style={{ width: `${widthPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Devices Distribution */}
+          <div className="bg-neutral-900 border border-neutral-800/80 p-6 rounded lg:col-span-4 flex flex-col space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-wider font-mono">
+                <Smartphone className="w-4 h-4 text-brand-orange" />
+                Tipo de Dispositivo
+              </h3>
+              <p className="text-xs text-neutral-400">Distribuição entre celulares, desktops e tablets</p>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center space-y-5">
+              {deviceStats.map((dev, idx) => {
+                const colorMap = [
+                  'bg-brand-orange',
+                  'bg-blue-500',
+                  'bg-purple-500'
+                ];
+
+                return (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-neutral-300 font-medium">{dev.name}</span>
+                      <span className="text-neutral-400 font-mono">
+                        {dev.count} <span className="text-[10px] text-neutral-500">({dev.percentage}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-neutral-950 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${colorMap[idx] || 'bg-brand-orange'} rounded-full transition-all duration-500`}
+                        style={{ width: `${dev.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="border-t border-neutral-800/60 pt-4 grid grid-cols-3 gap-2 text-center text-[11px] text-neutral-500 font-mono">
+                <div>
+                  <span className="block text-white text-sm font-bold">{deviceStats[0].percentage}%</span>
+                  Mobile
+                </div>
+                <div>
+                  <span className="block text-white text-sm font-bold">{deviceStats[1].percentage}%</span>
+                  Desktop
+                </div>
+                <div>
+                  <span className="block text-white text-sm font-bold">{deviceStats[2].percentage}%</span>
+                  Tablet
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Most Visited Sections */}
+          <div className="bg-neutral-900 border border-neutral-800/80 p-6 rounded lg:col-span-4 flex flex-col space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-wider font-mono">
+                <Layers className="w-4 h-4 text-brand-orange" />
+                Seções mais Visitadas
+              </h3>
+              <p className="text-xs text-neutral-400">Desempenho de visualizações por rota/âncora</p>
+            </div>
+
+            <div className="flex-1 space-y-4">
+              {pageStats.slice(0, 5).map((page, idx) => {
+                const maxCount = Math.max(...pageStats.map(p => p.count), 1);
+                const widthPercent = (page.count / maxCount) * 100;
+
+                return (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-neutral-300 font-mono font-medium max-w-[200px] truncate">
+                        {page.path}
+                      </span>
+                      <span className="text-neutral-400 font-mono">{page.count}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-neutral-950 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
+                        style={{ width: `${widthPercent}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </section>
+
+        {/* Real-time Click logs / Behavior Mapping */}
+        <section className="bg-neutral-900 border border-neutral-800/80 p-6 rounded space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-neutral-800 pb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                <MousePointerClick className="w-4 h-4 text-brand-orange" />
+                Mapeamento de Cliques de Visitantes (Tempo Real)
+              </h3>
+              <p className="text-xs text-neutral-400">Lista cronológica dos cliques realizados em botões de WhatsApp, formulários e links de contato</p>
+            </div>
+
+            {/* Filter Search */}
+            <div className="relative w-full sm:w-64">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-neutral-500">
+                <Search className="w-3.5 h-3.5" />
+              </span>
+              <input
+                type="text"
+                placeholder="Pesquisar clique..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded pl-9 pr-4 py-1.5 text-xs text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-neutral-800 text-neutral-400 font-mono uppercase tracking-wider text-[10px]">
+                  <th className="pb-3 pl-4 font-semibold">Elemento/Texto</th>
+                  <th className="pb-3 font-semibold">Identificador (ID)</th>
+                  <th className="pb-3 font-semibold">Categoria</th>
+                  <th className="pb-3 font-semibold">Página de Origem</th>
+                  <th className="pb-3 font-semibold text-right pr-4">Horário / Ocorrido</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-800/40">
+                {recentClicksList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-12 text-neutral-500">
+                      Nenhum clique de botão localizado. Clique em algum botão do site para ver aparecer aqui instantaneamente!
+                    </td>
+                  </tr>
+                ) : (
+                  recentClicksList.map((click, idx) => {
+                    // Check if clicked in last 2 minutes
+                    const isNew = Date.now() - new Date(click.timestamp).getTime() < 120000;
+
+                    return (
+                      <tr 
+                        key={idx} 
+                        className={`hover:bg-neutral-800/25 transition-colors ${isNew ? 'bg-brand-orange/5 font-medium' : ''}`}
+                      >
+                        <td className="py-3.5 pl-4 font-sans text-neutral-200">
+                          <div className="flex items-center gap-2">
+                            {isNew && (
+                              <span className="w-1.5 h-1.5 bg-brand-orange rounded-full animate-ping shrink-0" title="Evento capturado ao vivo!"></span>
+                            )}
+                            <span className="max-w-[180px] truncate block font-semibold text-white" title={click.text}>
+                              {click.text}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 font-mono text-neutral-400 text-[11px] max-w-[150px] truncate" title={click.elementId}>
+                          {click.elementId || <span className="text-neutral-600">-</span>}
+                        </td>
+                        <td className="py-3.5">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wide ${
+                            click.category === 'floating_buttons' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' :
+                            click.category === 'cta' ? 'bg-brand-orange/10 text-brand-orange border border-brand-orange/15' :
+                            'bg-neutral-800 text-neutral-400 border border-neutral-700/55'
+                          }`}>
+                            {click.category}
+                          </span>
+                        </td>
+                        <td className="py-3.5 font-mono text-neutral-400 text-[11px]">
+                          {click.path}
+                        </td>
+                        <td className="py-3.5 text-right pr-4 font-mono text-[11px] text-neutral-400 flex items-center justify-end gap-1.5">
+                          <Clock className="w-3 h-3 text-neutral-500" />
+                          <span>{formatTimeAgo(click.timestamp)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="bg-neutral-950/40 border border-neutral-800/80 p-4 rounded flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+            <span className="text-neutral-400 font-sans leading-relaxed">
+              💡 <strong>Dica de Teste:</strong> Abra uma nova guia do site, clique em qualquer botão do WhatsApp ou preencha o formulário, e retorne a este painel. O novo clique aparecerá realçado acima em tempo real!
+            </span>
+            <button
+              onClick={() => {
+                analyticsTracker.trackClick(
+                  'Clique de Teste Administrativo',
+                  'test-admin-btn',
+                  'btn-test',
+                  'cta',
+                  '/admin'
+                );
+                loadData();
+              }}
+              className="px-3.5 py-2 shrink-0 bg-neutral-800 hover:bg-neutral-700 hover:text-white text-neutral-300 font-semibold rounded text-[11px] uppercase tracking-wider font-mono border border-neutral-700"
+            >
+              Simular Clique Local
+            </button>
+          </div>
+        </section>
+        </>
+        ) : showEmailConfig ? (
+          /* Email Configuration & Notification Audit Workspace */
+          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 space-y-8 font-sans max-w-5xl mx-auto animate-fade-in">
+            {/* Header section with setup status */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-neutral-800">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-brand-orange" />
+                  Configuração de Alertas por E-mail
+                </h2>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Receba avisos instantâneos em seu e-mail pessoal toda vez que um novo visitante entrar ou interagir com o site.
+                </p>
+              </div>
+              
+              <button
+                onClick={() => setShowEmailConfig(false)}
+                className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded text-xs font-semibold border border-neutral-700 transition-colors"
+              >
+                Voltar para o Chat
+              </button>
+            </div>
+
+            {/* Status Alert Banner */}
+            {import.meta.env.VITE_EMAILJS_SERVICE_ID && import.meta.env.VITE_EMAILJS_TEMPLATE_ID && import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-4 flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-emerald-400">Serviço de Alertas de Tráfego ATIVO</h4>
+                  <p className="text-xs text-neutral-300 leading-relaxed">
+                    Sua integração com o <strong>EmailJS</strong> está configurada corretamente! O sistema enviará notificações reais para <strong>{import.meta.env.VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL || 'mktesquadrijampa@gmail.com'}</strong> sempre que um visitante entrar ou registrar o nome.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-amber-400">Modo de Simulação Ativo (Pendente de Chaves)</h4>
+                  <p className="text-xs text-neutral-300 leading-relaxed">
+                    As variáveis de ambiente do EmailJS não foram inseridas no arquivo <code>.env</code>. Para receber e-mails reais, siga o passo a passo abaixo. 
+                    Enquanto isso, <strong>o sistema simula o envio com sucesso localmente</strong> para que você possa testar o fluxo no histórico abaixo!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Section: Guide and Live Test */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Column: Quick Step-by-Step Guide */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                    🛠️ Como Ativar E-mails Reais em 3 Passos
+                  </h3>
+                  
+                  <div className="space-y-4 text-xs text-neutral-300">
+                    <div className="flex gap-3">
+                      <span className="w-6 h-6 rounded bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center font-bold font-mono shrink-0">1</span>
+                      <div className="space-y-1.5">
+                        <h5 className="font-semibold text-white">Crie uma conta gratuita no EmailJS</h5>
+                        <p className="leading-relaxed text-neutral-400">
+                          Acesse <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline inline-flex items-center gap-1">emailjs.com <ExternalLink className="w-3 h-3" /></a> e cadastre-se. O plano gratuito permite até 200 e-mails por mês.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="w-6 h-6 rounded bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center font-bold font-mono shrink-0">2</span>
+                      <div className="space-y-1.5">
+                        <h5 className="font-semibold text-white">Configure o Serviço e Modelo</h5>
+                        <p className="leading-relaxed text-neutral-400">
+                          Adicione um serviço de email (como o Gmail) e crie um <strong>Email Template</strong> com as seguintes variáveis em chaves duplas:
+                        </p>
+                        <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850 font-mono text-[10px] text-brand-orange space-y-1">
+                          <div>• Nome do Visitante: <code className="text-neutral-300">{"{{visitor_name}}"}</code></div>
+                          <div>• Dispositivo: <code className="text-neutral-300">{"{{device}}"}</code></div>
+                          <div>• Origem: <code className="text-neutral-300">{"{{referrer}}"}</code></div>
+                          <div>• Páginas: <code className="text-neutral-300">{"{{pages_visited}}"}</code></div>
+                          <div>• Link Direto do Chat: <code className="text-neutral-300">{"{{dashboard_url}}"}</code></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="w-6 h-6 rounded bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center font-bold font-mono shrink-0">3</span>
+                      <div className="space-y-1.5">
+                        <h5 className="font-semibold text-white">Insira as Chaves nas Configurações</h5>
+                        <p className="leading-relaxed text-neutral-400">
+                          Adicione as seguintes chaves de acesso no arquivo <code>.env</code> do seu projeto:
+                        </p>
+                        <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850 font-mono text-[10px] text-neutral-400 space-y-1">
+                          <div>VITE_EMAILJS_SERVICE_ID="<span className="text-emerald-400">seu_service_id</span>"</div>
+                          <div>VITE_EMAILJS_TEMPLATE_ID="<span className="text-emerald-400">seu_template_id</span>"</div>
+                          <div>VITE_EMAILJS_PUBLIC_KEY="<span className="text-emerald-400">sua_public_key</span>"</div>
+                          <div>VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL="<span className="text-emerald-400">seu_email_para_receber_alertas</span>"</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Interactive Test Console */}
+              <div className="lg:col-span-5 bg-neutral-950 p-5 rounded border border-neutral-850 space-y-4">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  🚀 Console de Teste de Alertas
+                </h3>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Dispare um evento de entrada simulada para validar sua integração. Se as chaves reais estiverem configuradas, o e-mail chegará instantaneamente!
+                </p>
+
+                <div className="pt-2">
+                  <button
+                    disabled={isSendingTestEmail}
+                    onClick={handleSendTestEmail}
+                    className="w-full py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold rounded text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingTestEmail ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Disparando Alerta...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Disparar E-mail de Teste
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {testEmailResult && (
+                  <div className={`p-3 rounded text-xs border ${
+                    testEmailResult.success 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                  } animate-fade-in`}>
+                    {testEmailResult.message}
+                  </div>
+                )}
+
+                <div className="bg-neutral-900/40 p-3.5 rounded border border-neutral-800 text-[11px] text-neutral-400 space-y-1">
+                  <div className="font-semibold text-white">Configuração Atual Detectada:</div>
+                  <div className="flex justify-between">
+                    <span>ID do Serviço:</span>
+                    <span className="font-mono text-[10px] text-neutral-300">{import.meta.env.VITE_EMAILJS_SERVICE_ID ? 'Configurado ✓' : 'Ausente ✗'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ID do Modelo:</span>
+                    <span className="font-mono text-[10px] text-neutral-300">{import.meta.env.VITE_EMAILJS_TEMPLATE_ID ? 'Configurado ✓' : 'Ausente ✗'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Chave Pública:</span>
+                    <span className="font-mono text-[10px] text-neutral-300">{import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? 'Configurada ✓' : 'Ausente ✗'}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-neutral-805">
+                    <span>Destinatário:</span>
+                    <span className="font-mono text-[10px] text-brand-orange font-semibold">{import.meta.env.VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL || 'mktesquadrijampa@gmail.com'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Audit Logs History Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  📋 Histórico de Disparos Recentes ({emailLogs.length})
+                </h3>
+                {emailLogs.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Deseja limpar os registros locais do histórico de e-mails?')) {
+                        localStorage.removeItem('esquadrijampa_email_notification_logs');
+                        setEmailLogs([]);
+                      }
+                    }}
+                    className="text-[10px] text-neutral-500 hover:text-red-400 transition-colors uppercase tracking-wider font-mono font-bold"
+                  >
+                    Limpar Logs
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-neutral-950 border border-neutral-850 rounded-lg overflow-hidden">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-neutral-800 text-neutral-400 font-mono uppercase tracking-wider text-[10px] bg-neutral-900/40">
+                      <th className="p-3 pl-4 font-semibold">Horário / Data</th>
+                      <th className="p-3 font-semibold">Visitante Notificado</th>
+                      <th className="p-3 font-semibold">Origem (Referrer)</th>
+                      <th className="p-3 font-semibold">Dispositivo</th>
+                      <th className="p-3 text-right pr-4 font-semibold">Status de Envio</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/40 font-mono text-[11px]">
+                    {emailLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-10 text-neutral-500 font-sans">
+                          Nenhum e-mail disparado ainda. Simule ou acesse o site de outra guia para ver as notificações aparecerem aqui!
+                        </td>
+                      </tr>
+                    ) : (
+                      emailLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-neutral-900/20 transition-colors">
+                          <td className="p-3 pl-4 text-neutral-400">
+                            {new Date(log.timestamp).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="p-3 text-neutral-200 font-sans font-semibold">
+                            {log.visitorName}
+                          </td>
+                          <td className="p-3 text-neutral-400">
+                            {log.referrer}
+                          </td>
+                          <td className="p-3 text-neutral-400">
+                            {log.device}
+                          </td>
+                          <td className="p-3 text-right pr-4">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-sans font-medium ${
+                              log.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              log.status === 'pending_credentials' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                              'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }`} title={log.error}>
+                              {log.status === 'sent' ? '✓ Enviado (Real)' : 
+                               log.status === 'pending_credentials' ? '● Simulado (Local)' : 
+                               '✗ Falhou'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Live Support Chat Workspace */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)] min-h-[580px] bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans">
+            
+            {/* Left Column: Sessions List */}
+            <div className="lg:col-span-4 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60">
+              <div className="p-4 border-b border-neutral-800 space-y-3">
+                <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-ping shrink-0"></span>
+                  Visitantes Ativos ({chatSessions.filter(s => s.isOnline).length} Online)
+                </h3>
+                
+                {/* Search filter for sessions */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
+                  <input
+                    type="text"
+                    placeholder="Filtrar por nome..."
+                    value={chatSearchTerm}
+                    onChange={(e) => setChatSearchTerm(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded pl-9 pr-4 py-2 text-xs text-neutral-300 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto divide-y divide-neutral-800/40">
+                {chatSessions.filter(s => {
+                  const term = chatSearchTerm.toLowerCase();
+                  return s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+                }).length === 0 ? (
+                  <div className="p-8 text-center text-xs text-neutral-500 space-y-2">
+                    <User className="w-8 h-8 text-neutral-600 mx-auto" />
+                    <p>Nenhum visitante localizado.</p>
+                    <p className="text-[10px] text-neutral-600">Utilize o botão "Simular Cliente" acima para criar um lead de teste!</p>
+                  </div>
+                ) : (
+                  chatSessions
+                    .filter(s => {
+                      const term = chatSearchTerm.toLowerCase();
+                      return s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+                    })
+                    .map((s) => {
+                      const isActive = s.sessionId === selectedSessionId;
+                      const unreadMessages = s.messages.filter(m => m.sender === 'visitor' && !m.read);
+                      const isOnline = s.isOnline;
+                      const lastMsg = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+
+                      return (
+                        <button
+                          key={s.sessionId}
+                          onClick={() => {
+                            setSelectedSessionId(s.sessionId);
+                            chatManager.markAsRead(s.sessionId);
+                          }}
+                          className={`w-full text-left p-4 transition-all hover:bg-neutral-800/30 flex items-start gap-3 border-l-2 cursor-pointer ${
+                            isActive 
+                              ? 'bg-neutral-800/50 border-brand-orange text-white' 
+                              : 'border-transparent text-neutral-300'
+                          }`}
+                        >
+                          {/* Status Badge */}
+                          <div className="relative shrink-0 mt-0.5">
+                            <div className={`w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold border border-neutral-700 ${isActive ? 'text-brand-orange' : 'text-neutral-400'}`}>
+                              {s.visitorName.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-neutral-900 ${
+                              isOnline ? 'bg-emerald-500' : 'bg-neutral-500'
+                            }`} title={isOnline ? 'Online' : 'Offline'}></span>
+                          </div>
+
+                          {/* Meta Info */}
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex justify-between items-baseline gap-1">
+                              <span className="font-semibold text-xs truncate text-white block">
+                                {s.customName || s.visitorName}
+                                {s.customName && <span className="text-[9px] text-brand-orange ml-1.5 font-normal">(Editado)</span>}
+                              </span>
+                              {lastMsg && (
+                                <span className="text-[9px] text-neutral-500 font-mono shrink-0">
+                                  {new Date(lastMsg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Last message preview */}
+                            <p className="text-[11px] text-neutral-400 truncate">
+                              {lastMsg ? lastMsg.text : 'Sem mensagens.'}
+                            </p>
+
+                            {/* Badges */}
+                            <div className="flex items-center gap-1.5 pt-1 text-[9px] font-mono text-neutral-500">
+                              <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">
+                                {s.device}
+                              </span>
+                              <span className="text-[9px] text-neutral-400">
+                                • {s.visitsCount} {s.visitsCount === 1 ? 'acesso' : 'acessos'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Unread Message Dot */}
+                          {unreadMessages.length > 0 && (
+                            <span className="w-5 h-5 rounded-full bg-brand-orange text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+                              {unreadMessages.length}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Chat Workspace */}
+            <div className="lg:col-span-8 flex flex-col h-full bg-neutral-950/20">
+              {(() => {
+                const activeSession = chatSessions.find(s => s.sessionId === selectedSessionId) || null;
+                if (!activeSession) {
+                  return (
+                    <div className="flex flex-col justify-center items-center text-center p-8 h-full space-y-3">
+                      <MessageSquare className="w-12 h-12 text-neutral-800 animate-pulse" />
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-white">Selecione uma Conversa</h3>
+                        <p className="text-xs text-neutral-500 max-w-sm">
+                          Escolha um visitante na barra lateral para ver o dossiê de navegação detalhado, cliques efetuados e iniciar o chat ao vivo!
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col h-full divide-y divide-neutral-800">
+                    {/* Active Header */}
+                    <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-neutral-900/40">
+                      <div className="space-y-1.5 flex-1">
+                        {editingNameSessionId === activeSession.sessionId ? (
+                          <form 
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              chatManager.renameVisitor(activeSession.sessionId, editingNameValue);
+                              setEditingNameSessionId(null);
+                            }}
+                            className="flex items-center gap-2 max-w-sm"
+                          >
+                            <input
+                              type="text"
+                              value={editingNameValue}
+                              onChange={(e) => setEditingNameValue(e.target.value)}
+                              className="bg-neutral-950 border border-neutral-800 rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                              required
+                              autoFocus
+                            />
+                            <button type="submit" className="p-1 rounded bg-brand-orange text-white cursor-pointer hover:bg-brand-orange-hover">
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setEditingNameSessionId(null)}
+                              className="p-1 rounded bg-neutral-850 text-neutral-400 hover:text-white cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                              {activeSession.customName || activeSession.visitorName}
+                            </h2>
+                            <button
+                              onClick={() => {
+                                setEditingNameSessionId(activeSession.sessionId);
+                                setEditingNameValue(activeSession.customName || activeSession.visitorName);
+                              }}
+                              className="text-neutral-500 hover:text-brand-orange p-1 transition-colors rounded hover:bg-neutral-800 cursor-pointer"
+                              title="Renomear visitante"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-mono tracking-wide ${
+                              activeSession.isOnline 
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
+                                : 'bg-neutral-800 text-neutral-400 border border-neutral-700/55'
+                            }`}>
+                              <span className={`w-1 h-1 rounded-full ${activeSession.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
+                              {activeSession.isOnline ? 'Online agora' : 'Offline'}
+                            </span>
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-neutral-500 font-mono">
+                          ID: <span className="text-neutral-400 font-mono">{activeSession.sessionId}</span> • Origem: <span className="text-brand-orange font-semibold">{activeSession.referrer}</span> • Dispositivo: <span className="text-neutral-300 font-semibold">{activeSession.device}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Deseja excluir esta sessão de atendimento permanentemente?')) {
+                              chatManager.deleteSession(activeSession.sessionId);
+                              setSelectedSessionId(null);
+                            }
+                          }}
+                          className="p-2 text-xs font-semibold bg-neutral-900 border border-neutral-800 hover:bg-red-950/20 hover:text-red-400 hover:border-red-900/50 rounded transition-all text-neutral-400 cursor-pointer"
+                          title="Excluir Atendimento"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chat Splitscreen: Feed and Tracking panels */}
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden h-[450px]">
+                      
+                      {/* Left Side: Message feed */}
+                      <div className="md:col-span-7 flex flex-col h-full bg-neutral-950/15 overflow-hidden border-r border-neutral-800">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+                          {activeSession.messages.map((msg) => {
+                            const isSystem = msg.sender === 'system';
+                            const isAdmin = msg.sender === 'admin';
+
+                            if (isSystem) {
+                              return (
+                                <div key={msg.id} className="flex justify-center my-1.5">
+                                  <span className="bg-neutral-850/80 border border-neutral-800 text-neutral-400 text-[10px] px-3 py-1 rounded-full text-center max-w-[90%] font-mono">
+                                    {msg.text}
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={msg.id}
+                                className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}
+                              >
+                                <div
+                                  className={`max-w-[80%] rounded px-3.5 py-2 text-xs shadow-sm leading-relaxed ${
+                                    isAdmin
+                                      ? 'bg-brand-orange text-white rounded-tr-none'
+                                      : 'bg-neutral-800 text-neutral-200 rounded-tl-none border border-neutral-700/35'
+                                  }`}
+                                >
+                                  <p>{msg.text}</p>
+                                  <span className="block text-[8px] text-right mt-1 opacity-60 font-mono">
+                                    {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div ref={chatMessagesEndRef} />
+                        </div>
+
+                        {/* Input row */}
+                        <form 
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (adminMessageInput.trim()) {
+                              chatManager.sendMessage(activeSession.sessionId, 'admin', adminMessageInput.trim());
+                              setAdminMessageInput('');
+                            }
+                          }}
+                          className="p-3 bg-neutral-900 border-t border-neutral-800 flex items-center gap-2"
+                        >
+                          <input
+                            type="text"
+                            required
+                            placeholder={`Responder para ${activeSession.customName || activeSession.visitorName}...`}
+                            value={adminMessageInput}
+                            onChange={(e) => setAdminMessageInput(e.target.value)}
+                            className="flex-1 text-xs text-white bg-neutral-950 border border-neutral-800 rounded-full px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:bg-neutral-900 transition-all"
+                          />
+                          <button
+                            type="submit"
+                            className="p-2.5 rounded-full bg-brand-orange hover:bg-brand-orange-hover text-white transition-colors cursor-pointer shadow-md shrink-0"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Right Side: Visitor Dossier & Notes */}
+                      <div className="md:col-span-5 flex flex-col h-full divide-y divide-neutral-800 overflow-y-auto bg-neutral-900/10">
+                        
+                        {/* Note block */}
+                        <div className="p-4 space-y-2 shrink-0">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-brand-orange" />
+                              Notas do Atendente
+                            </span>
+                            {notesSaveStatus && (
+                              <span className="text-[9px] font-mono text-emerald-400 font-semibold animate-pulse">
+                                {notesSaveStatus}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <textarea
+                            placeholder="Anote contatos, telefones ou especificações de esquadrias solicitadas por este cliente..."
+                            value={activeSession.notes}
+                            onChange={(e) => {
+                              chatManager.updateAdminNotes(activeSession.sessionId, e.target.value);
+                              setNotesSaveStatus('Salvando...');
+                              // Force redraw
+                              setChatSessions(chatManager.getSessions());
+                              setTimeout(() => setNotesSaveStatus('Salvo!'), 600);
+                            }}
+                            className="w-full h-20 bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-brand-orange leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Navigation History */}
+                        <div className="p-4 space-y-2.5 shrink-0">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                            <History className="w-3.5 h-3.5 text-brand-orange" />
+                            Páginas Visitadas ({activeSession.pagesPassed.length})
+                          </span>
+
+                          <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                            {activeSession.pagesPassed.map((page, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-[11px] text-neutral-300 font-mono bg-neutral-950 p-1.5 rounded border border-neutral-850">
+                                <span className="text-[9px] text-neutral-500">#{idx + 1}</span>
+                                <span className="truncate flex-1">{page}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex justify-between text-[10px] text-neutral-400 pt-1">
+                            <span>Vezes que acessou o site:</span>
+                            <span className="text-brand-orange font-bold font-mono">{activeSession.visitsCount} entradas</span>
+                          </div>
+                        </div>
+
+                        {/* Action clicks history */}
+                        <div className="p-4 space-y-2.5 flex-1 min-h-[140px]">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                            <MousePointerClick className="w-3.5 h-3.5 text-brand-orange" />
+                            Ações & Cliques Rastreados ({activeSession.clicks.length})
+                          </span>
+
+                          {activeSession.clicks.length === 0 ? (
+                            <p className="text-[10px] text-neutral-500 italic">Nenhum clique de botão detectado neste acesso.</p>
+                          ) : (
+                            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                              {activeSession.clicks.map((click, idx) => (
+                                <div key={idx} className="bg-neutral-950 p-2 rounded border border-neutral-850 text-[10px] space-y-0.5">
+                                  <div className="flex justify-between text-neutral-200 font-semibold gap-1">
+                                    <span className="truncate">{click.text}</span>
+                                    <span className="text-[8px] text-neutral-500 font-mono shrink-0">
+                                      {new Date(click.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <p className="text-[8px] text-neutral-500 font-mono truncate">ID: {click.elementId || '-'}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
