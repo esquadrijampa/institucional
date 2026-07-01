@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { MessageSquare, X, Send, User, ChevronDown, Sparkles } from 'lucide-react';
+import { MessageSquare, X, Send, User, ChevronDown, Sparkles, Cookie, MapPin, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { chatManager, VisitorSession } from '../lib/chatManager';
 
@@ -17,20 +17,10 @@ export default function VisitorChatWidget() {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [lastAdminMessage, setLastAdminMessage] = useState<string | null>(null);
   const [showAdminToast, setShowAdminToast] = useState<boolean>(false);
+  const [showCookieBanner, setShowCookieBanner] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load and subscribe to chat session updates
-  useEffect(() => {
-    // Initialize or load current session
-    const currentSession = chatManager.getOrCreateCurrentVisitor();
-    setSession(currentSession);
-
-    const unsubscribe = chatManager.subscribe(() => {
-      const updated = chatManager.getOrCreateCurrentVisitor();
-      setSession(updated);
-    });
-
-    // Request browser Geolocation silently if available
+  const triggerGeolocation = () => {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -59,6 +49,31 @@ export default function VisitorChatWidget() {
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 86400000 }
       );
     }
+  };
+
+  // Load and subscribe to chat session updates
+  useEffect(() => {
+    // Initialize or load current session
+    const currentSession = chatManager.getOrCreateCurrentVisitor();
+    setSession(currentSession);
+
+    const unsubscribe = chatManager.subscribe(() => {
+      const updated = chatManager.getOrCreateCurrentVisitor();
+      setSession(updated);
+    });
+
+    // Check cookie consent
+    const consent = localStorage.getItem('esquadrijampa_cookies_accepted');
+    if (consent === 'true') {
+      triggerGeolocation();
+    } else if (consent === null) {
+      const bannerTimer = setTimeout(() => {
+        setShowCookieBanner(true);
+      }, 1500);
+      return () => {
+        clearTimeout(bannerTimer);
+      };
+    }
 
     // Tick online states and monitor updates
     const stateInterval = setInterval(() => {
@@ -70,6 +85,17 @@ export default function VisitorChatWidget() {
       clearInterval(stateInterval);
     };
   }, []);
+
+  const handleAcceptCookies = () => {
+    localStorage.setItem('esquadrijampa_cookies_accepted', 'true');
+    setShowCookieBanner(false);
+    triggerGeolocation();
+  };
+
+  const handleDeclineCookies = () => {
+    localStorage.setItem('esquadrijampa_cookies_accepted', 'false');
+    setShowCookieBanner(false);
+  };
 
   // Monitor incoming admin messages to show a prominent overlay/toast
   useEffect(() => {
@@ -106,7 +132,7 @@ export default function VisitorChatWidget() {
       setUnreadCount(unread);
     } else if (isOpen && session) {
       setUnreadCount(0);
-      chatManager.markAsRead(session.sessionId);
+      chatManager.markAsRead(session.sessionId, 'visitor');
     }
   }, [session?.messages, isOpen]);
 
@@ -132,7 +158,7 @@ export default function VisitorChatWidget() {
   if (!session) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] font-sans" id="chat-widget-root">
+    <div className="fixed bottom-4 right-4 sm:fixed sm:bottom-6 sm:right-6 z-[9999] font-sans" id="chat-widget-root">
       {/* Speech Bubble / Toast for Admin Messages */}
       <AnimatePresence>
         {!isOpen && showAdminToast && lastAdminMessage && (
@@ -204,7 +230,7 @@ export default function VisitorChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className="absolute bottom-18 right-0 w-[350px] sm:w-[380px] max-h-[520px] h-[520px] bg-white rounded-xl shadow-2xl border border-neutral-200/80 overflow-hidden flex flex-col"
+            className="absolute bottom-18 -right-2 sm:right-0 w-[calc(100vw-32px)] sm:w-[380px] max-h-[520px] h-[520px] bg-white rounded-xl shadow-2xl border border-neutral-200/80 overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="bg-neutral-900 px-4 py-3.5 flex justify-between items-center text-white border-b border-neutral-800">
@@ -317,9 +343,18 @@ export default function VisitorChatWidget() {
                           }`}
                         >
                           <p>{msg.text}</p>
-                          <span className={`block text-[8px] text-right mt-1.5 opacity-70 ${isAdmin ? 'text-neutral-300' : 'text-neutral-100'}`}>
-                            {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                          <div className={`flex items-center justify-end gap-1 mt-1.5 opacity-75 text-[9px] ${isAdmin ? 'text-neutral-300' : 'text-neutral-100'}`}>
+                            <span>
+                              {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {!isAdmin && (
+                              msg.read ? (
+                                <CheckCheck className="w-3 h-3 text-sky-200 shrink-0" title="Lido" />
+                              ) : (
+                                <Check className="w-3 h-3 text-neutral-300/80 shrink-0" title="Enviado" />
+                              )
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -348,6 +383,52 @@ export default function VisitorChatWidget() {
                 </button>
               </form>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cookie and Location Consent Banner */}
+      <AnimatePresence>
+        {showCookieBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed bottom-24 right-6 left-6 md:left-auto md:w-[360px] bg-neutral-900 border border-neutral-800 text-white rounded-xl p-4.5 shadow-2xl flex flex-col gap-3.5 z-[9999] font-sans"
+            id="cookie-consent-banner"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center text-brand-orange shrink-0 mt-0.5">
+                <Cookie className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold tracking-wide uppercase text-brand-orange flex items-center gap-1.5 font-mono">
+                  Privacidade & Localização
+                </h4>
+                <p className="text-[11px] text-neutral-300 leading-relaxed">
+                  Utilizamos cookies e sua localização para personalizar sua experiência de navegação e identificar sua cidade e bairro.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 border-t border-neutral-800/80 pt-3">
+              <button
+                onClick={handleDeclineCookies}
+                className="flex-1 bg-transparent hover:bg-neutral-800/60 text-neutral-400 hover:text-neutral-200 border border-neutral-800 hover:border-neutral-700 text-[10px] font-bold uppercase py-2 rounded tracking-wider transition-colors text-center cursor-pointer"
+                id="btn-decline-cookies"
+              >
+                Apenas Essenciais
+              </button>
+              <button
+                onClick={handleAcceptCookies}
+                className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white text-[10px] font-bold uppercase py-2 rounded tracking-wider transition-colors text-center cursor-pointer flex items-center justify-center gap-1 shadow-md shadow-brand-orange/15"
+                id="btn-accept-cookies"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                Permitir Cookies
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

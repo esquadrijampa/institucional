@@ -16,6 +16,7 @@ interface NavbarProps {
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isServicesOpen, setIsServicesOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -24,6 +25,14 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const closeDropdowns = () => {
+      setIsServicesOpen(false);
+    };
+    window.addEventListener('click', closeDropdowns);
+    return () => window.removeEventListener('click', closeDropdowns);
   }, []);
 
   const menuItems = [
@@ -43,6 +52,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
   const handleNavigate = (page: ActivePage) => {
     setActivePage(page);
     setIsOpen(false);
+    setIsServicesOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -130,18 +140,26 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
             {/* Dropdown de Serviços */}
             <div className="relative group py-2">
               <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsServicesOpen(!isServicesOpen);
+                }}
                 className={getServicesTriggerClasses()}
                 id="nav-link-servicos"
               >
                 Serviços
-                <ChevronDown className="w-4 h-4 transition-transform duration-200 group-hover:rotate-180" />
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isServicesOpen ? 'rotate-180' : 'group-hover:rotate-180'}`} />
                 {[ActivePage.Esquadrias, ActivePage.Fachadas, ActivePage.Brises, ActivePage.Vidros].includes(activePage) && (
                   <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-brand-orange rounded-full" />
                 )}
               </button>
               
               {/* Dropdown Menu */}
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-56 bg-white border border-brand-gray-mid rounded-md shadow-lg py-1.5 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top -translate-y-2 group-hover:translate-y-0">
+              <div className={`absolute left-1/2 -translate-x-1/2 mt-1 w-56 bg-white border border-brand-gray-mid rounded-md shadow-lg py-1.5 z-50 transition-all duration-200 transform origin-top ${
+                isServicesOpen 
+                  ? 'opacity-100 visible translate-y-0' 
+                  : 'opacity-0 invisible -translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0'
+              }`}>
                 {servicesItems.map((subItem) => (
                   <button
                     key={subItem.page}

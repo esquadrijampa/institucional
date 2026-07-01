@@ -225,6 +225,7 @@ class ChatManager {
         } else {
           this.sessions = loaded;
           this.notifyListeners();
+          this.resequenceVisitorCodes();
         }
       }, (error) => {
         console.error("Firestore snapshot error:", error);
@@ -476,7 +477,7 @@ class ChatManager {
       sender,
       text,
       timestamp: new Date().toISOString(),
-      read: sender === 'admin' ? false : true
+      read: false
     };
 
     session.messages.push(newMessage);
@@ -523,11 +524,73 @@ class ChatManager {
   }
 
   // Mark all messages as read for a session
-  public markAsRead(sessionId: string) {
+  public markAsRead(sessionId: string, reader?: 'visitor' | 'admin') {
     const session = this.sessions.find(s => s.sessionId === sessionId);
     if (session) {
-      session.messages = session.messages.map(m => ({ ...m, read: true }));
-      this.saveSessionToFirestore(session);
+      let changed = false;
+      session.messages = session.messages.map(m => {
+        if (!reader) {
+          if (!m.read) changed = true;
+          return { ...m, read: true };
+        }
+        if (reader === 'admin' && (m.sender === 'visitor' || m.sender === 'system')) {
+          if (!m.read) changed = true;
+          return { ...m, read: true };
+        }
+        if (reader === 'visitor' && m.sender === 'admin') {
+          if (!m.read) changed = true;
+          return { ...m, read: true };
+        }
+        return m;
+      });
+      if (changed) {
+        this.saveSessionToFirestore(session);
+      }
+    }
+  }
+
+  // Resequence all visitor codes dynamically based on start time so they go up sequentially without duplicates
+  private async resequenceVisitorCodes() {
+    // Sort a copy of all sessions by startedAt (ascending) so the oldest session is #01, second oldest is #02, etc.
+    const sorted = [...this.sessions].sort((a, b) => {
+      const timeA = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+      const timeB = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    let seq = 1;
+    for (const session of sorted) {
+      const expectedCode = `Visitante #${seq.toString().padStart(2, '0')}`;
+      let needsUpdate = false;
+      const updatedSession = { ...session };
+
+      if (session.visitorCode !== expectedCode) {
+        updatedSession.visitorCode = expectedCode;
+        needsUpdate = true;
+      }
+
+      // If visitorName is a default Visitante name or matches visitorCode, keep it in sync
+      const isDefaultName = !session.isRegistered || 
+                            !session.visitorName || 
+                            /^Visitante\s*#\d+$/i.test(session.visitorName) ||
+                            session.visitorName === session.visitorCode;
+
+      if (isDefaultName && session.visitorName !== expectedCode) {
+        updatedSession.visitorName = expectedCode;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        // Update local session reference in the array to avoid flickering
+        const idx = this.sessions.findIndex(s => s.sessionId === session.sessionId);
+        if (idx !== -1) {
+          this.sessions[idx] = updatedSession;
+        }
+        // Save to Firestore
+        await this.saveSessionToFirestore(updatedSession);
+      }
+
+      seq++;
     }
   }
 

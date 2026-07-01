@@ -62,6 +62,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'metrics' | 'chat'>('metrics');
   const [chatSessions, setChatSessions] = useState<VisitorSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [showDossierOnMobile, setShowDossierOnMobile] = useState<boolean>(false);
   const [adminMessageInput, setAdminMessageInput] = useState<string>('');
   const [editingNameSessionId, setEditingNameSessionId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState<string>('');
@@ -142,10 +143,13 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
     }
   }, [isAuthenticated]);
 
-  // Scroll to bottom on new admin chat messages
+  // Scroll to bottom and mark as read on new admin chat messages
   useEffect(() => {
     if (chatMessagesEndRef.current) {
       chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+    if (selectedSessionId) {
+      chatManager.markAsRead(selectedSessionId, 'admin');
     }
   }, [selectedSessionId, chatSessions]);
 
@@ -658,7 +662,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const highlightedDay = selectedDayIndex !== null ? chartData[selectedDayIndex] : null;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans pb-16 selection:bg-brand-orange/30">
+    <div className={`min-h-screen bg-neutral-950 text-neutral-100 font-sans selection:bg-brand-orange/30 ${activeTab === 'chat' && !showEmailConfig ? 'h-screen flex flex-col overflow-hidden' : 'pb-16'}`}>
       
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -700,11 +704,12 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           <button
             onClick={() => {
               setActiveTab('chat');
+              setShowDossierOnMobile(false);
               // Auto-select first session if nothing selected yet
               if (!selectedSessionId && chatSessions.length > 0) {
                 const first = chatSessions[0];
                 setSelectedSessionId(first.sessionId);
-                chatManager.markAsRead(first.sessionId);
+                chatManager.markAsRead(first.sessionId, 'admin');
               }
             }}
             className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer relative flex-shrink-0 ${
@@ -834,7 +839,11 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-6 pt-8 space-y-8 animate-fade-in">
+      <main className={`max-w-7xl mx-auto w-full animate-fade-in ${
+        activeTab === 'chat' && !showEmailConfig
+          ? 'flex-1 flex flex-col min-h-0 px-4 md:px-6 pt-4 pb-4 overflow-hidden space-y-0' 
+          : 'px-6 pt-8 space-y-8'
+      }`}>
         {activeTab === 'metrics' ? (
           <>
             {/* Custom Date Picker inputs shown ONLY when 'custom' is selected */}
@@ -1619,7 +1628,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           </div>
         ) : (
           /* Live Support Chat Workspace */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 h-[calc(100vh-140px)] min-h-[580px] bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 min-h-0 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans">
             
             {/* Left Column: Sessions List */}
             <div className={`lg:col-span-3 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60 ${selectedSessionId ? 'hidden lg:flex' : 'flex'}`}>
@@ -1769,7 +1778,8 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                           key={s.sessionId}
                           onClick={() => {
                             setSelectedSessionId(s.sessionId);
-                            chatManager.markAsRead(s.sessionId);
+                            chatManager.markAsRead(s.sessionId, 'admin');
+                            setShowDossierOnMobile(false);
                           }}
                           className={`w-full text-left p-4 transition-all flex items-start gap-3 border-l-2 cursor-pointer ${
                             isActive 
@@ -1949,6 +1959,25 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                     </div>
 
                       <div className="flex items-center gap-2">
+                        {/* Toggle Dossiê/Chat on mobile */}
+                        <button
+                          onClick={() => setShowDossierOnMobile(!showDossierOnMobile)}
+                          className="lg:hidden flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-neutral-900 border border-neutral-850 hover:bg-neutral-800 rounded transition-all text-brand-orange cursor-pointer"
+                          title={showDossierOnMobile ? "Ver Conversa" : "Ver Dossiê"}
+                        >
+                          {showDossierOnMobile ? (
+                            <>
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Conversa</span>
+                            </>
+                          ) : (
+                            <>
+                              <User className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Dossiê</span>
+                            </>
+                          )}
+                        </button>
+
                         {activeSession.archived ? (
                           <button
                             onClick={() => {
@@ -1996,7 +2025,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       
                       {/* Left Side: Message feed (WhatsApp Mobile layout) */}
                       <div 
-                        className="lg:col-span-8 flex flex-col h-full bg-[#0b141a] overflow-hidden border-r border-neutral-800 relative"
+                        className={`lg:col-span-8 flex flex-col h-full bg-[#0b141a] overflow-hidden border-r border-neutral-800 relative ${showDossierOnMobile ? 'hidden lg:flex' : 'flex'}`}
                         style={{ 
                           backgroundImage: 'radial-gradient(#1f2c34 1.2px, transparent 1.2px)', 
                           backgroundSize: '20px 20px' 
@@ -2038,7 +2067,11 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                                       {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                     {isAdmin && (
-                                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" />
+                                      msg.read ? (
+                                        <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" title="Lido" />
+                                      ) : (
+                                        <Check className="w-3.5 h-3.5 text-[#8696a0]/70 shrink-0" title="Entregue" />
+                                      )
                                     )}
                                   </div>
                                 </div>
@@ -2080,7 +2113,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       </div>
 
                       {/* Right Side: Visitor Dossier & Notes */}
-                      <div className="lg:col-span-4 h-full overflow-y-auto divide-y divide-neutral-800 bg-neutral-900/10">
+                      <div className={`lg:col-span-4 h-full overflow-y-auto divide-y divide-neutral-800 bg-neutral-900/10 ${showDossierOnMobile ? 'flex flex-col' : 'hidden lg:flex lg:flex-col'}`}>
                         
                         {/* Contact Dossier Card */}
                         <div className="p-4 space-y-3 bg-neutral-950/20">
