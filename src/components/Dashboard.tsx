@@ -2063,7 +2063,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                       </div>
 
                       {/* Right Side: Visitor Dossier & Notes */}
-                      <div className="lg:col-span-4 flex flex-col h-full divide-y divide-neutral-800 overflow-y-auto bg-neutral-900/10">
+                      <div className="lg:col-span-4 h-full overflow-y-auto divide-y divide-neutral-800 bg-neutral-900/10">
                         
                         {/* Contact Dossier Card */}
                         <div className="p-4 space-y-3 bg-neutral-950/20">
@@ -2157,7 +2157,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                         </div>
 
                         {/* Note block */}
-                        <div className="p-4 space-y-2 shrink-0">
+                        <div className="p-4 space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
                               <FileText className="w-3.5 h-3.5 text-brand-orange" />
@@ -2185,7 +2185,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                         </div>
 
                         {/* Navigation History */}
-                        <div className="p-4 space-y-2.5 shrink-0">
+                        <div className="p-4 space-y-2.5">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
                             <History className="w-3.5 h-3.5 text-brand-orange" />
                             Páginas Visitadas ({activeSession.pagesPassed.length})
@@ -2207,7 +2207,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                         </div>
 
                         {/* Action clicks history */}
-                        <div className="p-4 space-y-2.5 flex-1 min-h-[140px]">
+                        <div className="p-4 space-y-2.5">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
                             <MousePointerClick className="w-3.5 h-3.5 text-brand-orange" />
                             Ações & Cliques Rastreados ({activeSession.clicks.length})
