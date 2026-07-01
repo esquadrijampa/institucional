@@ -30,6 +30,36 @@ export default function VisitorChatWidget() {
       setSession(updated);
     });
 
+    // Request browser Geolocation silently if available
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`, {
+            headers: { 'Accept-Language': 'pt-BR' }
+          })
+          .then(res => res.json())
+          .then(geoData => {
+            if (geoData && geoData.address) {
+              const city = geoData.address.city || geoData.address.town || geoData.address.village || 'João Pessoa';
+              const state = geoData.address.state_code || 'PB';
+              const neighborhood = geoData.address.suburb || 
+                                   geoData.address.neighbourhood || 
+                                   geoData.address.quarter || 
+                                   geoData.address.city_district || 
+                                   '';
+              chatManager.updateLocation(city, state, neighborhood);
+            }
+          })
+          .catch(err => console.warn("Error reverse geocoding browser geolocation:", err));
+        },
+        (error) => {
+          console.warn("Browser geolocation permission denied or failed:", error);
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 86400000 }
+      );
+    }
+
     // Tick online states and monitor updates
     const stateInterval = setInterval(() => {
       chatManager.updateOnlineStates();

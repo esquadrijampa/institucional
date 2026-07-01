@@ -1795,6 +1795,9 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                               <span className={`font-semibold text-xs truncate block ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-white'}`}>
                                 {s.customName || s.visitorName}
                                 {s.customName && <span className="text-[9px] text-brand-orange ml-1.5 font-normal">(Editado)</span>}
+                                {s.isRegistered && s.visitorCode && (
+                                  <span className="text-[9px] text-neutral-500 ml-1.5 font-normal">({s.visitorCode})</span>
+                                )}
                               </span>
                               {lastMsg && (
                                 <span className={`text-[9px] font-mono shrink-0 ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-neutral-500'}`}>
@@ -1813,12 +1816,15 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                               <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-brand-orange">
                                 {s.device}
                               </span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-semibold ${s.isNewUser ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/20' : 'bg-blue-950/40 text-blue-400 border border-blue-900/20'}`}>
+                                {s.isNewUser ? 'Novo' : 'Retorno'}
+                              </span>
                               {s.city && (
                                 <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-neutral-300">
-                                  📍 {s.city}
+                                  📍 {s.city}{s.neighborhood ? ` / ${s.neighborhood}` : ''}
                                 </span>
                               )}
-                              <span className="text-[9px] text-neutral-400">
+                              <span className="text-[9px] text-neutral-400 shrink-0">
                                 ⏱️ {formatTimeOnline(s.startedAt)}
                               </span>
                             </div>
@@ -1902,6 +1908,9 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                           <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-sm font-bold text-white flex items-center gap-2">
                               {activeSession.customName || activeSession.visitorName}
+                              {activeSession.visitorCode && activeSession.isRegistered && (
+                                <span className="text-xs text-neutral-500 font-normal">({activeSession.visitorCode})</span>
+                              )}
                             </h2>
                             <button
                               onClick={() => {
@@ -1921,6 +1930,14 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             }`}>
                               <span className={`w-1 h-1 rounded-full ${activeSession.online ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
                               {activeSession.online ? 'Online agora' : 'Offline'}
+                            </span>
+
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono tracking-wide ${
+                              activeSession.isNewUser
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
+                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/15'
+                            }`}>
+                              {activeSession.isNewUser ? 'Novo' : 'Recorrente'}
                             </span>
                           </div>
                         )}
@@ -2076,8 +2093,8 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             {/* Localização */}
                             <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
                               <span className="text-[9px] text-neutral-500 block uppercase">Localização</span>
-                              <span className="text-white font-semibold flex items-center gap-1">
-                                📍 {activeSession.city || 'João Pessoa'}, {activeSession.state || 'PB'}
+                              <span className="text-white font-semibold flex flex-wrap items-center gap-1 leading-snug">
+                                📍 {activeSession.city || 'João Pessoa'}{activeSession.neighborhood ? ` / ${activeSession.neighborhood}` : ''}, {activeSession.state || 'PB'}
                               </span>
                             </div>
 
@@ -2086,6 +2103,22 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                               <span className="text-[9px] text-neutral-500 block uppercase">Tempo no Site</span>
                               <span className="text-emerald-400 font-mono font-semibold flex items-center gap-1">
                                 ⏱️ {formatTimeOnline(activeSession.startedAt)}
+                              </span>
+                            </div>
+
+                            {/* Tipo de Visitante */}
+                            <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
+                              <span className="text-[9px] text-neutral-500 block uppercase">Tipo de Visitante</span>
+                              <span className={`font-semibold flex items-center gap-1 ${activeSession.isNewUser ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                {activeSession.isNewUser ? '🆕 Novo' : '🔁 Recorrente'}
+                              </span>
+                            </div>
+
+                            {/* Código Identificador */}
+                            <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
+                              <span className="text-[9px] text-neutral-500 block uppercase">Ordem de Entrada</span>
+                              <span className="text-brand-orange font-mono font-semibold flex items-center gap-1">
+                                🆔 {activeSession.visitorCode || 'N/A'}
                               </span>
                             </div>
                           </div>

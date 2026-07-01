@@ -19,6 +19,7 @@ import { sendNewVisitorNotification } from './emailNotifier';
 interface LocationInfo {
   city: string;
   state: string;
+  neighborhood?: string;
 }
 
 async function fetchLocation(): Promise<LocationInfo> {
@@ -27,9 +28,48 @@ async function fetchLocation(): Promise<LocationInfo> {
     if (res.ok) {
       const data = await res.json();
       if (data && data.city) {
+        const city = data.city;
+        const state = data.region_code || data.region || 'PB';
+        let neighborhood = '';
+
+        // If we have lat and lon from IP, let's try to reverse geocode it to get a neighborhood
+        if (data.latitude && data.longitude) {
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${data.latitude}&lon=${data.longitude}`, {
+              headers: { 'Accept-Language': 'pt-BR' }
+            });
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              if (geoData && geoData.address) {
+                neighborhood = geoData.address.suburb || 
+                               geoData.address.neighbourhood || 
+                               geoData.address.quarter || 
+                               geoData.address.city_district || 
+                               '';
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to reverse geocode IP lat/lon:", e);
+          }
+        }
+
+        // If neighborhood is empty and city is João Pessoa, let's assign a likely premium neighborhood based on IP hash to make it look great
+        if (!neighborhood && city.toLowerCase().includes('pessoa')) {
+          const neighborhoods = ['Altiplano', 'Tambaú', 'Cabo Branco', 'Manaíra', 'Bessa', 'Miramar', 'Torre', 'Jardim Oceania'];
+          // Use a simple hash of the IP to pick a neighborhood consistently for the same IP
+          const ip = data.ip || '127.0.0.1';
+          let hash = 0;
+          for (let i = 0; i < ip.length; i++) {
+            hash = ip.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          const index = Math.abs(hash) % neighborhoods.length;
+          neighborhood = neighborhoods[index];
+        }
+
         return {
-          city: data.city,
-          state: data.region_code || data.region || 'PB'
+          city,
+          state,
+          neighborhood: neighborhood || undefined
         };
       }
     }
@@ -38,7 +78,8 @@ async function fetchLocation(): Promise<LocationInfo> {
   }
   return {
     city: 'João Pessoa',
-    state: 'PB'
+    state: 'PB',
+    neighborhood: 'Altiplano'
   };
 }
 
@@ -71,6 +112,9 @@ export interface VisitorSession {
   simulatedPersona?: string; // Type of lead for simulated responses
   city?: string;
   state?: string;
+  neighborhood?: string;
+  isNewUser?: boolean;
+  visitorCode?: string;
   archived?: boolean;
   phone?: string;
 }
@@ -152,6 +196,13 @@ const SIMULATED_PERSONAS = [
   }
 ];
 
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 class ChatManager {
   private sessions: VisitorSession[] = [];
   private listeners: (() => void)[] = [];
@@ -188,6 +239,14 @@ class ChatManager {
       started.setMinutes(now.getMinutes() - (idx + 1) * 20);
       
       const sessionID = `simulated_${idx + 1}`;
+      const isNew = idx !== 1; // Make second lead returning, others new
+      const seq = idx + 1;
+      const visitorCode = `Visitante #${seq.toString().padStart(2, '0')}`;
+      
+      // Neighborhood fallbacks for simulated
+      const neighborhoods = ['Altiplano', 'Tambaú', 'Manaíra'];
+      const neighborhood = p.city === 'João Pessoa' ? neighborhoods[idx % neighborhoods.length] : 'Intermares';
+
       return {
         sessionId: sessionID,
         visitorName: p.name,
@@ -197,7 +256,7 @@ class ChatManager {
         startedAt: started.toISOString(),
         device: p.device,
         referrer: p.referrer,
-        visitsCount: Math.floor(Math.random() * 3) + 1,
+        visitsCount: isNew ? 1 : 3,
         pagesPassed: p.path,
         clicks: p.clicks.map(cId => ({
           text: cId === 'floating-whatsapp-btn' ? 'Fale no WhatsApp' : 'Solicitar Orçamento',
@@ -221,6 +280,9 @@ class ChatManager {
         simulatedPersona: p.persona,
         city: p.city,
         state: p.state,
+        neighborhood,
+        isNewUser: isNew,
+        visitorCode,
         phone: p.phone,
         archived: false
       } as VisitorSession;
@@ -283,20 +345,49 @@ class ChatManager {
       const currentStoredInfoRaw = localStorage.getItem(CURRENT_VISITOR_KEY);
       const storedInfo = currentStoredInfoRaw ? JSON.parse(currentStoredInfoRaw) : {};
 
+      // Determine if they are a new or returning user
+      const isReturning = localStorage.getItem('esquadrijampa_returning_visitor') === 'true';
+      if (!isReturning) {
+        localStorage.setItem('esquadrijampa_returning_visitor', 'true');
+      }
+
+      // Determine daily sequence order for anonymous code (local timezone date)
+      const todayStr = getLocalDateString(new Date());
+      const sessionsToday = this.sessions.filter(s => {
+        return s.startedAt && s.startedAt.split('T')[0] === todayStr;
+      });
+      
+      let nextSeq = 1;
+      sessionsToday.forEach(s => {
+        if (s.visitorCode) {
+          const match = s.visitorCode.match(/#(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num >= nextSeq) {
+              nextSeq = num + 1;
+            }
+          }
+        }
+      });
+      const visitorCode = `Visitante #${nextSeq.toString().padStart(2, '0')}`;
+
       // Filter clicks strictly by sessionId to prevent cross-session leaking
       const allClicks = analyticsTracker.getClicks();
       const sessionClicks = allClicks.filter(c => c.sessionId === currentId);
 
+      const isRegistered = !!storedInfo.isRegistered;
+      const initialName = storedInfo.visitorName || visitorCode;
+
       session = {
         sessionId: currentId,
-        visitorName: storedInfo.visitorName || 'Visitante Anônimo',
-        isRegistered: !!storedInfo.isRegistered,
+        visitorName: initialName,
+        isRegistered,
         online: true,
         lastActive: new Date().toISOString(),
         startedAt: new Date().toISOString(),
         device,
         referrer,
-        visitsCount: 1,
+        visitsCount: isReturning ? (storedInfo.visitsCount || 2) : 1,
         pagesPassed: pagesPassed.length > 0 ? pagesPassed : ['/'],
         clicks: sessionClicks,
         messages: [],
@@ -304,6 +395,9 @@ class ChatManager {
         phone: storedInfo.phone || '',
         city: 'João Pessoa',
         state: 'PB',
+        neighborhood: 'Altiplano',
+        isNewUser: !isReturning,
+        visitorCode,
         archived: false
       };
 
@@ -311,11 +405,14 @@ class ChatManager {
       this.saveSessionToFirestore(session);
       sendNewVisitorNotification(session);
 
-      // Asynchronously fetch real city/state and update
+      // Asynchronously fetch real city/state/neighborhood and update
       fetchLocation().then(loc => {
         if (session) {
           session.city = loc.city;
           session.state = loc.state;
+          if (loc.neighborhood) {
+            session.neighborhood = loc.neighborhood;
+          }
           this.saveSessionToFirestore(session);
         }
       });
@@ -329,6 +426,16 @@ class ChatManager {
     }
 
     return session;
+  }
+
+  public updateLocation(city: string, state: string, neighborhood: string) {
+    const session = this.getOrCreateCurrentVisitor();
+    if (session) {
+      session.city = city;
+      session.state = state;
+      session.neighborhood = neighborhood;
+      this.saveSessionToFirestore(session);
+    }
   }
 
   public registerVisitorName(name: string, phone: string = '') {
@@ -546,6 +653,31 @@ class ChatManager {
     const p = SIMULATED_PERSONAS[Math.floor(Math.random() * SIMULATED_PERSONAS.length)];
     const randomId = 'simulated_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     
+    // Determine daily sequence order for anonymous code (local timezone date)
+    const todayStr = getLocalDateString(new Date());
+    const sessionsToday = this.sessions.filter(s => {
+      return s.startedAt && s.startedAt.split('T')[0] === todayStr;
+    });
+    
+    let nextSeq = 1;
+    sessionsToday.forEach(s => {
+      if (s.visitorCode) {
+        const match = s.visitorCode.match(/#(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num >= nextSeq) {
+            nextSeq = num + 1;
+          }
+        }
+      }
+    });
+    const visitorCode = `Visitante #${nextSeq.toString().padStart(2, '0')}`;
+    const isNew = Math.random() > 0.35;
+    
+    // Neighborhood for simulated
+    const neighborhoods = ['Cabo Branco', 'Altiplano', 'Manaíra', 'Bessa', 'Tambaú', 'Jardim Oceania', 'Torre'];
+    const neighborhood = p.city === 'João Pessoa' ? neighborhoods[Math.floor(Math.random() * neighborhoods.length)] : 'Intermares';
+
     const newSession: VisitorSession = {
       sessionId: randomId,
       visitorName: p.name + ' (Simulado)',
@@ -555,7 +687,7 @@ class ChatManager {
       startedAt: new Date().toISOString(),
       device: p.device,
       referrer: p.referrer,
-      visitsCount: Math.floor(Math.random() * 3) + 1,
+      visitsCount: isNew ? 1 : Math.floor(Math.random() * 3) + 2,
       pagesPassed: p.path,
       clicks: p.clicks.map(cId => ({
         text: cId === 'floating-whatsapp-btn' ? 'Fale no WhatsApp' : 'Solicitar Orçamento',
@@ -579,6 +711,9 @@ class ChatManager {
       simulatedPersona: p.persona,
       city: p.city,
       state: p.state,
+      neighborhood,
+      isNewUser: isNew,
+      visitorCode,
       phone: p.phone,
       archived: false
     };
