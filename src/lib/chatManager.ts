@@ -318,6 +318,36 @@ class ChatManager {
   // --- Visitor Side API ---
 
   public getOrCreateCurrentVisitor(): VisitorSession {
+    const isDashboard = typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/dashboard') ||
+      window.location.hash.toLowerCase() === '#dashboard'
+    );
+
+    if (isDashboard) {
+      return {
+        sessionId: 'dashboard_dummy',
+        visitorName: 'Administrador',
+        isRegistered: true,
+        online: false,
+        lastActive: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+        device: 'Computador',
+        referrer: 'Direto / Favoritos',
+        visitsCount: 1,
+        pagesPassed: ['/dashboard'],
+        clicks: [],
+        messages: [],
+        adminNotes: '',
+        phone: '',
+        city: 'João Pessoa',
+        state: 'PB',
+        neighborhood: 'Altiplano',
+        isNewUser: false,
+        visitorCode: 'Admin',
+        archived: true
+      };
+    }
+
     const currentId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || 'visitor_' + Date.now();
     if (!sessionStorage.getItem('esquadrijampa_analytics_session_id')) {
       sessionStorage.setItem('esquadrijampa_analytics_session_id', currentId);
@@ -682,6 +712,17 @@ class ChatManager {
   }
 
   public trackPageNavigation(path: string) {
+    if (
+      path.startsWith('/dashboard') ||
+      path.includes('#dashboard') ||
+      (typeof window !== 'undefined' && (
+        window.location.pathname.startsWith('/dashboard') ||
+        window.location.hash.toLowerCase() === '#dashboard'
+      ))
+    ) {
+      return; // Skip tracking page navigation on dashboard
+    }
+
     const currentId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || 'visitor_' + Date.now();
     if (!sessionStorage.getItem('esquadrijampa_analytics_session_id')) {
       sessionStorage.setItem('esquadrijampa_analytics_session_id', currentId);
@@ -707,6 +748,18 @@ class ChatManager {
   }
 
   public trackClickAction(clickText: string, clickId: string, elementClass: string, category: string, path: string) {
+    if (
+      path.startsWith('/dashboard') ||
+      path.includes('#dashboard') ||
+      (typeof window !== 'undefined' && (
+        window.location.pathname.startsWith('/dashboard') ||
+        window.location.hash.toLowerCase() === '#dashboard'
+      )) ||
+      clickId === 'btn-sidebar-dashboard'
+    ) {
+      return; // Skip tracking clicks on dashboard
+    }
+
     const currentId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || 'visitor_' + Date.now();
     if (!sessionStorage.getItem('esquadrijampa_analytics_session_id')) {
       sessionStorage.setItem('esquadrijampa_analytics_session_id', currentId);

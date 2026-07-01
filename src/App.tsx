@@ -53,6 +53,14 @@ export default function App() {
   // Global GTM dataLayer Click Listener
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
+      // Ignore clicks when browsing the dashboard
+      if (
+        window.location.pathname.startsWith('/dashboard') ||
+        window.location.hash.toLowerCase() === '#dashboard'
+      ) {
+        return;
+      }
+
       const target = event.target as HTMLElement | null;
       if (!target) return;
 
@@ -174,7 +182,7 @@ export default function App() {
 
     // Push virtual pageview event for seamless Google Tag Manager, GA4, and local tracker dashboard
     const meta = PAGE_META_MAP[activePage];
-    if (meta) {
+    if (meta && meta.path !== '/dashboard') {
       // Record locally in our tracker
       analyticsTracker.trackPageView(meta.path, meta.title);
 

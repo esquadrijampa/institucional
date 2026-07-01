@@ -167,6 +167,15 @@ export const analyticsTracker = {
    */
   init() {
     try {
+      if (
+        typeof window !== 'undefined' && (
+          window.location.pathname.startsWith('/dashboard') ||
+          window.location.hash.toLowerCase() === '#dashboard'
+        )
+      ) {
+        return; // Skip analytics initialization for dashboard
+      }
+
       const views = localStorage.getItem(VIEWS_KEY);
       if (!views) {
         generateSimulatedHistory();
@@ -191,6 +200,17 @@ export const analyticsTracker = {
    */
   trackPageView(path: string, title: string) {
     try {
+      if (
+        path.startsWith('/dashboard') ||
+        path.includes('#dashboard') ||
+        (typeof window !== 'undefined' && (
+          window.location.pathname.startsWith('/dashboard') ||
+          window.location.hash.toLowerCase() === '#dashboard'
+        ))
+      ) {
+        return; // Skip dashboard page views
+      }
+
       const viewsRaw = localStorage.getItem(VIEWS_KEY);
       const views: PageViewEvent[] = viewsRaw ? JSON.parse(viewsRaw) : [];
       
@@ -222,6 +242,17 @@ export const analyticsTracker = {
    */
   trackClick(text: string, elementId: string, elementClass: string, category: string, path: string) {
     try {
+      if (
+        path.startsWith('/dashboard') ||
+        path.includes('#dashboard') ||
+        (typeof window !== 'undefined' && (
+          window.location.pathname.startsWith('/dashboard') ||
+          window.location.hash.toLowerCase() === '#dashboard'
+        ))
+      ) {
+        return; // Skip dashboard click events
+      }
+
       const clicksRaw = localStorage.getItem(CLICKS_KEY);
       const clicks: ClickEvent[] = clicksRaw ? JSON.parse(clicksRaw) : [];
       const sessionId = sessionStorage.getItem('esquadrijampa_analytics_session_id') || undefined;
