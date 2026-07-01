@@ -92,6 +92,10 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [editingNameValue, setEditingNameValue] = useState<string>('');
   const [editingPhoneSessionId, setEditingPhoneSessionId] = useState<string | null>(null);
   const [editingPhoneValue, setEditingPhoneValue] = useState<string>('');
+  const [editingLocationSessionId, setEditingLocationSessionId] = useState<string | null>(null);
+  const [editingCityValue, setEditingCityValue] = useState<string>('');
+  const [editingStateValue, setEditingStateValue] = useState<string>('');
+  const [editingNeighborhoodValue, setEditingNeighborhoodValue] = useState<string>('');
   const [chatSortBy, setChatSortBy] = useState<'recent' | 'online_time' | 'alphabetical' | 'unread'>('recent');
   const [currentSubTab, setCurrentSubTab] = useState<'active' | 'archived'>('active');
   const [notesSaveStatus, setNotesSaveStatus] = useState<string>('');
@@ -2148,11 +2152,91 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
 
                           <div className="grid grid-cols-2 gap-2 text-[11px]">
                             {/* Localização */}
-                            <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
-                              <span className="text-[9px] text-neutral-500 block uppercase">Localização</span>
-                              <span className="text-white font-semibold flex flex-wrap items-center gap-1 leading-snug">
-                                📍 {activeSession.city || 'João Pessoa'}{activeSession.neighborhood ? ` / ${activeSession.neighborhood}` : ''}, {activeSession.state || 'PB'}
-                              </span>
+                            <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1 col-span-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] text-neutral-500 block uppercase">Localização</span>
+                                {editingLocationSessionId !== activeSession.sessionId && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingLocationSessionId(activeSession.sessionId);
+                                      setEditingCityValue(activeSession.city || 'João Pessoa');
+                                      setEditingStateValue(activeSession.state || 'PB');
+                                      setEditingNeighborhoodValue(activeSession.neighborhood || '');
+                                    }}
+                                    className="text-[9px] text-neutral-400 hover:text-brand-orange flex items-center gap-0.5 transition-colors cursor-pointer font-bold"
+                                    type="button"
+                                  >
+                                    <Edit className="w-2.5 h-2.5" /> Editar
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {editingLocationSessionId === activeSession.sessionId ? (
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    chatManager.updateSessionLocation(
+                                      activeSession.sessionId,
+                                      editingCityValue,
+                                      editingStateValue,
+                                      editingNeighborhoodValue
+                                    );
+                                    setEditingLocationSessionId(null);
+                                    setChatSessions(chatManager.getSessions());
+                                  }}
+                                  className="space-y-1.5 pt-1 text-[11px]"
+                                >
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    <div className="col-span-2">
+                                      <span className="text-[8px] text-neutral-500 block uppercase">Cidade</span>
+                                      <input
+                                        type="text"
+                                        value={editingCityValue}
+                                        onChange={(e) => setEditingCityValue(e.target.value)}
+                                        className="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                                      />
+                                    </div>
+                                    <div>
+                                      <span className="text-[8px] text-neutral-500 block uppercase">UF</span>
+                                      <input
+                                        type="text"
+                                        value={editingStateValue}
+                                        onChange={(e) => setEditingStateValue(e.target.value)}
+                                        maxLength={2}
+                                        className="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-0.5 text-[10px] text-white uppercase focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-[8px] text-neutral-500 block uppercase">Bairro</span>
+                                    <input
+                                      type="text"
+                                      value={editingNeighborhoodValue}
+                                      onChange={(e) => setEditingNeighborhoodValue(e.target.value)}
+                                      className="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                                    />
+                                  </div>
+                                  <div className="flex gap-1 justify-end pt-1">
+                                    <button
+                                      type="submit"
+                                      className="px-2 py-0.5 rounded bg-brand-orange text-white text-[9px] font-bold hover:bg-brand-orange/95 cursor-pointer"
+                                    >
+                                      Salvar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingLocationSessionId(null)}
+                                      className="px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 text-[9px] font-bold hover:text-white cursor-pointer"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <span className="text-white font-semibold flex flex-wrap items-center gap-1 leading-snug">
+                                  📍 {activeSession.city || 'João Pessoa'}{activeSession.neighborhood ? ` / ${activeSession.neighborhood}` : ''}, {activeSession.state || 'PB'}
+                                </span>
+                              )}
                             </div>
 
                             {/* Tempo Online */}

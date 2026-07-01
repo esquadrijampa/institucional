@@ -206,6 +206,7 @@ function getLocalDateString(date: Date): string {
 class ChatManager {
   private sessions: VisitorSession[] = [];
   private listeners: (() => void)[] = [];
+  private hasRefreshedLocationThisLoad = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -419,9 +420,32 @@ class ChatManager {
       });
     } else {
       // Update activity status to online
+      let needsSave = false;
+      const wasOffline = !session.online;
+
       if (!session.online) {
         session.online = true;
         session.lastActive = new Date().toISOString();
+        needsSave = true;
+      }
+
+      // If they were offline OR we haven't refreshed location during this specific load yet, update location
+      if (wasOffline || !this.hasRefreshedLocationThisLoad) {
+        this.hasRefreshedLocationThisLoad = true;
+        
+        fetchLocation().then(loc => {
+          // Find updated session reference to avoid working on stale data
+          const currentSession = this.sessions.find(s => s.sessionId === currentId);
+          if (currentSession) {
+            currentSession.city = loc.city;
+            currentSession.state = loc.state;
+            if (loc.neighborhood) {
+              currentSession.neighborhood = loc.neighborhood;
+            }
+            this.saveSessionToFirestore(currentSession);
+          }
+        }).catch(err => console.warn("Failed to update location on re-entry:", err));
+      } else if (needsSave) {
         this.saveSessionToFirestore(session);
       }
     }
@@ -431,6 +455,16 @@ class ChatManager {
 
   public updateLocation(city: string, state: string, neighborhood: string) {
     const session = this.getOrCreateCurrentVisitor();
+    if (session) {
+      session.city = city;
+      session.state = state;
+      session.neighborhood = neighborhood;
+      this.saveSessionToFirestore(session);
+    }
+  }
+
+  public updateSessionLocation(sessionId: string, city: string, state: string, neighborhood: string) {
+    const session = this.sessions.find(s => s.sessionId === sessionId);
     if (session) {
       session.city = city;
       session.state = state;
