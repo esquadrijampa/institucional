@@ -809,10 +809,39 @@ class ChatManager {
 
 export const chatManager = new ChatManager();
 
-export function formatTimeOnline(startedAt: string): string {
+export function formatTimeOnline(startedAt: string, lastActive?: string, online?: boolean): string {
   try {
-    const d = new Date(startedAt);
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const start = new Date(startedAt).getTime();
+    if (isNaN(start)) return '';
+    
+    let end = Date.now();
+    if (!online && lastActive) {
+      const active = new Date(lastActive).getTime();
+      if (!isNaN(active) && active >= start) {
+        end = active;
+      }
+    } else if (lastActive) {
+      const active = new Date(lastActive).getTime();
+      if (!isNaN(active) && active > end) {
+        end = active;
+      }
+    }
+    
+    const diffMs = end - start;
+    if (diffMs < 0) return '0s';
+    
+    const diffSecs = Math.floor(diffMs / 1000);
+    const hours = Math.floor(diffSecs / 3600);
+    const minutes = Math.floor((diffSecs % 3600) / 60);
+    const seconds = diffSecs % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
   } catch (e) {
     return '';
   }

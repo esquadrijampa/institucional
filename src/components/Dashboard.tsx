@@ -43,6 +43,30 @@ import { chatManager, VisitorSession, ChatMessage, formatTimeOnline } from '../l
 import { getEmailLogs, EmailLog, sendNewVisitorNotification } from '../lib/emailNotifier';
 import { ActivePage } from '../types';
 
+interface SessionDurationProps {
+  startedAt: string;
+  lastActive?: string;
+  online?: boolean;
+  className?: string;
+}
+
+function SessionDuration({ startedAt, lastActive, online, className = "" }: SessionDurationProps) {
+  const [durationStr, setDurationStr] = useState<string>("");
+
+  useEffect(() => {
+    const update = () => {
+      setDurationStr(formatTimeOnline(startedAt, lastActive, online));
+    };
+
+    update(); // Run immediately
+
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt, lastActive, online]);
+
+  return <span className={className}>{durationStr}</span>;
+}
+
 interface DashboardProps {
   onBackToHome: () => void;
 }
@@ -1835,7 +1859,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                                 </span>
                               )}
                               <span className="text-[9px] text-neutral-400 shrink-0">
-                                ⏱️ {formatTimeOnline(s.startedAt)}
+                                ⏱️ <SessionDuration startedAt={s.startedAt} lastActive={s.lastActive} online={s.online} />
                               </span>
                             </div>
                           </div>
@@ -2135,7 +2159,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850/60 space-y-1">
                               <span className="text-[9px] text-neutral-500 block uppercase">Tempo no Site</span>
                               <span className="text-emerald-400 font-mono font-semibold flex items-center gap-1">
-                                ⏱️ {formatTimeOnline(activeSession.startedAt)}
+                                ⏱️ <SessionDuration startedAt={activeSession.startedAt} lastActive={activeSession.lastActive} online={activeSession.online} />
                               </span>
                             </div>
 
