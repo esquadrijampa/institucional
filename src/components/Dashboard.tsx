@@ -101,6 +101,8 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [notesSaveStatus, setNotesSaveStatus] = useState<string>('');
   const [chatSearchTerm, setChatSearchTerm] = useState<string>('');
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'online' | 'offline' | 'with_messages'>('all');
+  const [quickSendSessionId, setQuickSendSessionId] = useState<string>('');
+  const [quickSendMessageText, setQuickSendMessageText] = useState<string>('');
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
   // Email Notification system states
@@ -1656,7 +1658,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           </div>
         ) : (
           /* Live Support Chat Workspace */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 min-h-0 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 min-h-0 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)]">
             
             {/* Left Column: Sessions List */}
             <div className={`lg:col-span-3 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60 ${selectedSessionId ? 'hidden lg:flex' : 'flex'}`}>
@@ -1886,15 +1888,78 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
               {(() => {
                 const activeSession = chatSessions.find(s => s.sessionId === selectedSessionId) || null;
                 if (!activeSession) {
+                  const candidates = chatSessions.filter(s => !s.archived);
                   return (
-                    <div className="flex flex-col justify-center items-center text-center p-8 h-full space-y-3">
-                      <MessageSquare className="w-12 h-12 text-neutral-800 animate-pulse" />
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-bold text-white">Selecione uma Conversa</h3>
-                        <p className="text-xs text-neutral-500 max-w-sm">
-                          Escolha um visitante na barra lateral para ver o dossiê de navegação detalhado, cliques efetuados e iniciar o chat ao vivo!
+                    <div className="flex flex-col justify-center items-center p-8 h-full space-y-6 max-w-lg mx-auto overflow-y-auto w-full">
+                      <div className="text-center space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center text-brand-orange mx-auto">
+                          <MessageSquare className="w-6 h-6 animate-pulse" />
+                        </div>
+                        <h3 className="text-base font-bold text-white">Enviar Mensagem Rápida</h3>
+                        <p className="text-xs text-neutral-400 max-w-sm">
+                          Escolha um visitante abaixo ou selecione um na barra lateral para iniciar o atendimento em tempo real.
                         </p>
                       </div>
+
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const targetId = quickSendSessionId || (candidates[0]?.sessionId);
+                          if (targetId && quickSendMessageText.trim()) {
+                            chatManager.sendMessage(targetId, 'admin', quickSendMessageText.trim());
+                            setSelectedSessionId(targetId);
+                            setQuickSendMessageText('');
+                          }
+                        }}
+                        className="w-full bg-neutral-900 p-5 rounded-xl border border-neutral-800 space-y-4 shadow-xl"
+                      >
+                        <div>
+                          <label className="block text-[10px] text-neutral-400 uppercase font-mono tracking-wider font-semibold mb-1.5">
+                            Destinatário (Visitante)
+                          </label>
+                          {candidates.length === 0 ? (
+                            <div className="text-xs text-neutral-500 py-2.5 px-3 bg-neutral-950 rounded border border-neutral-850">
+                              Nenhum visitante ativo no momento. Use "Simular Cliente" para testar!
+                            </div>
+                          ) : (
+                            <select
+                              value={quickSendSessionId}
+                              onChange={(e) => setQuickSendSessionId(e.target.value)}
+                              className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2.5 text-xs text-neutral-100 focus:outline-none focus:ring-1 focus:ring-brand-orange font-sans font-medium"
+                            >
+                              <option value="">Selecione um visitante...</option>
+                              {candidates.map(s => (
+                                <option key={s.sessionId} value={s.sessionId}>
+                                  {s.online ? '🟢' : '⚫'} {s.customName || s.visitorName} ({s.visitorCode || 'Sem Código'})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-neutral-400 uppercase font-mono tracking-wider font-semibold mb-1.5">
+                            Mensagem para enviar
+                          </label>
+                          <textarea
+                            required
+                            rows={4}
+                            placeholder="Escreva sua mensagem de atendimento aqui..."
+                            value={quickSendMessageText}
+                            onChange={(e) => setQuickSendMessageText(e.target.value)}
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded p-3 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange resize-none font-sans"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={!quickSendMessageText.trim() || (!quickSendSessionId && candidates.length === 0)}
+                          className="w-full py-3 rounded bg-[#00a884] hover:bg-[#008f72] text-neutral-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-45 disabled:cursor-not-allowed"
+                        >
+                          <Send className="w-4 h-4 text-neutral-950" />
+                          Iniciar Atendimento & Enviar
+                        </button>
+                      </form>
                     </div>
                   );
                 }
