@@ -1658,7 +1658,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           </div>
         ) : (
           /* Live Support Chat Workspace */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 min-h-0 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 min-h-0 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans h-full">
             
             {/* Left Column: Sessions List */}
             <div className={`lg:col-span-3 border-r border-neutral-800 flex flex-col h-full bg-neutral-900/60 ${selectedSessionId ? 'hidden lg:flex' : 'flex'}`}>
@@ -1864,8 +1864,19 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                                   📍 {s.city}{s.neighborhood ? ` / ${s.neighborhood}` : ''}
                                 </span>
                               )}
-                              <span className="text-[9px] text-neutral-400 shrink-0">
-                                ⏱️ <SessionDuration startedAt={s.startedAt} lastActive={s.lastActive} online={s.online} />
+                              {s.referrer && (
+                                <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-amber-500 font-semibold" title={`Origem: ${s.referrer}`}>
+                                  🔗 {s.referrer}
+                                </span>
+                              )}
+                              <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-neutral-400" title="Hora de Entrada">
+                                🕒 {(() => {
+                                  try {
+                                    return new Date(s.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                  } catch (e) {
+                                    return '';
+                                  }
+                                })()}
                               </span>
                             </div>
                           </div>
