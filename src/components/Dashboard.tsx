@@ -36,7 +36,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   Archive,
-  CheckCheck
+  CheckCheck,
+  Camera,
+  MoreVertical,
+  Plus,
+  Pin,
+  Phone,
+  Users,
+  Settings
 } from 'lucide-react';
 import { analyticsTracker, PageViewEvent, ClickEvent } from '../lib/analyticsTracker';
 import { chatManager, VisitorSession, ChatMessage, formatTimeOnline } from '../lib/chatManager';
@@ -110,6 +117,7 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [isSendingTestEmail, setIsSendingTestEmail] = useState<boolean>(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showYouProfile, setShowYouProfile] = useState<boolean>(false);
 
 
   // Auto-authenticate if session token exists
@@ -607,6 +615,45 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
     return { viewPath, visitPath, points, maxVal, chartHeight, paddingTop, paddingLeft, chartWidth };
   }, [chartData]);
 
+  // Memoized filtered and sorted chat sessions for WhatsApp layout
+  const filteredSessions = useMemo(() => {
+    return chatSessions
+      .filter(s => {
+        const term = chatSearchTerm.toLowerCase();
+        const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
+        const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
+        const matchesStatus = chatStatusFilter === 'all' 
+          ? true 
+          : chatStatusFilter === 'online' 
+            ? s.online === true 
+            : chatStatusFilter === 'offline' 
+              ? s.online !== true 
+              : chatStatusFilter === 'unread'
+                ? s.messages.filter(m => m.sender === 'visitor' && !m.read).length > 0
+                : chatStatusFilter === 'with_messages'
+                  ? s.messages.length > 0
+                  : true;
+        return matchesSearch && matchesTab && matchesStatus;
+      })
+      .slice()
+      .sort((a, b) => {
+        if (chatSortBy === 'online_time') {
+          return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+        }
+        if (chatSortBy === 'alphabetical') {
+          const nameA = (a.customName || a.visitorName).toLowerCase();
+          const nameB = (b.customName || b.visitorName).toLowerCase();
+          return nameA.localeCompare(nameB);
+        }
+        if (chatSortBy === 'unread') {
+          const unreadA = a.messages.filter(m => m.sender === 'visitor' && !m.read).length;
+          const unreadB = b.messages.filter(m => m.sender === 'visitor' && !m.read).length;
+          return unreadB - unreadA;
+        }
+        return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
+      });
+  }, [chatSessions, chatSearchTerm, currentSubTab, chatStatusFilter, chatSortBy]);
+
   // Time format helper (Relative text)
   const formatTimeAgo = (isoString: string) => {
     const diffMs = Date.now() - new Date(isoString).getTime();
@@ -695,40 +742,40 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
     <div className={`bg-neutral-950 text-neutral-100 font-sans selection:bg-brand-orange/30 ${activeTab === 'chat' && !showEmailConfig ? 'h-screen flex flex-col overflow-hidden' : 'min-h-screen pb-16'}`}>
       
       {/* Top Navbar */}
-      <header className="sticky top-0 z-50 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded bg-brand-orange/10 flex items-center justify-center text-brand-orange border border-brand-orange/20">
-            {activeTab === 'metrics' ? <BarChart3 className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+      <header className="sticky top-0 z-50 bg-neutral-900 border-b border-neutral-800 px-4 py-2 flex flex-col md:flex-row justify-between items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded bg-brand-orange/10 flex items-center justify-center text-brand-orange border border-brand-orange/20">
+            {activeTab === 'metrics' ? <BarChart3 className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-white">
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-sm font-bold text-white leading-none">
                 {activeTab === 'metrics' ? 'Painel de Métricas' : 'Mesa de Atendimento'}
               </h1>
-              <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+              <span className="bg-emerald-500/10 border border-emerald-500/15 text-emerald-400 text-[8px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded-full flex items-center gap-1">
+                <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse"></span>
                 Ativo
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
+            <p className="text-[10px] text-neutral-500 hidden sm:block mt-0.5">
               {activeTab === 'metrics' 
-                ? 'Dados de tráfego e comportamento do usuário' 
-                : 'Monitoramento de visitantes e chat em tempo real'}
+                ? 'Dados de tráfego e comportamento' 
+                : 'Monitoramento em tempo real'}
             </p>
           </div>
         </div>
 
         {/* Tab Controls (Centralized) */}
-        <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs overflow-x-auto max-w-full whitespace-nowrap scrollbar-none flex-shrink-0">
+        <div className="bg-neutral-950 p-0.5 rounded border border-neutral-800/80 flex items-center text-[11px] overflow-x-auto max-w-full whitespace-nowrap scrollbar-none flex-shrink-0">
           <button
             onClick={() => setActiveTab('metrics')}
-            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer flex-shrink-0 ${
+            className={`px-3 py-1 rounded transition-all font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0 ${
               activeTab === 'metrics' 
-                ? 'bg-neutral-800 text-brand-orange shadow-md' 
+                ? 'bg-neutral-800 text-brand-orange shadow-sm' 
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            <BarChart3 className="w-3.5 h-3.5" />
+            <BarChart3 className="w-3 h-3" />
             Métricas de Tráfego
           </button>
           <button
@@ -742,76 +789,76 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                 chatManager.markAsRead(first.sessionId, 'admin');
               }
             }}
-            className={`px-3.5 py-2 rounded transition-all font-semibold flex items-center gap-2 cursor-pointer relative flex-shrink-0 ${
+            className={`px-3 py-1 rounded transition-all font-semibold flex items-center gap-1.5 cursor-pointer relative flex-shrink-0 ${
               activeTab === 'chat' 
-                ? 'bg-neutral-800 text-brand-orange shadow-md' 
+                ? 'bg-neutral-800 text-brand-orange shadow-sm' 
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            <MessageSquare className="w-3.5 h-3.5" />
+            <MessageSquare className="w-3 h-3" />
             Chat & Visitantes
             
             {unreadCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-brand-orange text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
+              <span className="w-4 h-4 rounded-full bg-brand-orange text-white text-[8px] font-extrabold flex items-center justify-center animate-bounce">
                 {unreadCount}
               </span>
             )}
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 w-full md:w-auto">
           {activeTab === 'metrics' && (
             <>
               {/* Fonte de Dados Toggle */}
-              <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-[11px] gap-0.5">
+              <div className="bg-neutral-950 p-0.5 rounded border border-neutral-800/80 flex items-center text-[10px] gap-0.5">
                 <button
                   onClick={() => setMetricsSource('real')}
-                  className={`px-2.5 py-1.5 rounded transition-all font-bold flex items-center gap-1.5 cursor-pointer border ${
+                  className={`px-2 py-1 rounded transition-all font-bold flex items-center gap-1 cursor-pointer border ${
                     metricsSource === 'real' 
                       ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20' 
                       : 'text-neutral-400 hover:text-white border-transparent'
                   }`}
                   title="Métricas em tempo real de visitantes do site"
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${metricsSource === 'real' ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
+                  <span className={`w-1 h-1 rounded-full ${metricsSource === 'real' ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
                   Dados Reais
                 </button>
                 <button
                   onClick={() => setMetricsSource('simulated')}
-                  className={`px-2.5 py-1.5 rounded transition-all font-bold flex items-center gap-1.5 cursor-pointer border ${
+                  className={`px-2 py-1 rounded transition-all font-bold flex items-center gap-1 cursor-pointer border ${
                     metricsSource === 'simulated' 
                       ? 'bg-amber-950/40 text-amber-400 border-amber-500/20' 
                       : 'text-neutral-400 hover:text-white border-transparent'
                   }`}
                   title="Dados simulados de demonstração"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  <span className="w-1 h-1 rounded-full bg-amber-400"></span>
                   Demonstração
                 </button>
               </div>
 
-              <div className="bg-neutral-950 p-1 rounded border border-neutral-800 flex items-center text-xs">
+              <div className="bg-neutral-950 p-0.5 rounded border border-neutral-800/80 flex items-center text-[10px]">
                 <button
                   onClick={() => setTimeRange('7')}
-                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '7' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded transition-colors font-semibold ${timeRange === '7' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
                 >
-                  7 dias
+                  7d
                 </button>
                 <button
                   onClick={() => setTimeRange('14')}
-                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '14' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded transition-colors font-semibold ${timeRange === '14' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
                 >
-                  14 dias
+                  14d
                 </button>
                 <button
                   onClick={() => setTimeRange('30')}
-                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === '30' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded transition-colors font-semibold ${timeRange === '30' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
                 >
-                  30 dias
+                  30d
                 </button>
                 <button
                   onClick={() => setTimeRange('custom')}
-                  className={`px-3 py-1.5 rounded transition-colors font-medium ${timeRange === 'custom' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded transition-colors font-semibold ${timeRange === 'custom' ? 'bg-neutral-800 text-brand-orange' : 'text-neutral-400 hover:text-white'}`}
                 >
                   Personalizado
                 </button>
@@ -825,14 +872,14 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                 onClick={() => {
                   setShowEmailConfig(!showEmailConfig);
                 }}
-                className={`flex items-center gap-2 text-xs font-semibold border px-3.5 py-2.5 rounded transition-all cursor-pointer ${
+                className={`flex items-center gap-1 text-[11px] font-bold border px-2.5 py-1 rounded transition-all cursor-pointer ${
                   showEmailConfig
                     ? 'bg-brand-orange border-brand-orange text-white hover:bg-brand-orange/90'
-                    : 'bg-neutral-900 border-neutral-800 hover:bg-neutral-800 text-neutral-300'
+                    : 'bg-neutral-950 border-neutral-800 hover:bg-neutral-800 text-neutral-300'
                 }`}
               >
-                <Mail className={`w-3.5 h-3.5 ${showEmailConfig ? 'text-white' : 'text-brand-orange'}`} />
-                Alertas por E-mail
+                <Mail className={`w-3 h-3 ${showEmailConfig ? 'text-white' : 'text-brand-orange'}`} />
+                Alertas
               </button>
 
               <button
@@ -842,10 +889,10 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                     setChatSessions(chatManager.getSessions());
                   }
                 }}
-                className="flex items-center gap-2 text-xs font-semibold bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 px-3.5 py-2.5 rounded text-neutral-300 cursor-pointer"
+                className="flex items-center gap-1 text-[11px] font-semibold bg-neutral-950 border border-neutral-800 hover:bg-neutral-800 px-2.5 py-1 rounded text-neutral-300 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-brand-orange" />
-                Simular Cliente
+                <Sparkles className="w-3 h-3 text-brand-orange" />
+                Simular
               </button>
             </>
           )}
@@ -853,16 +900,16 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           <button
             onClick={handleResetData}
             title="Redefinir histórico simulado"
-            className="p-2.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white transition-colors hover:bg-neutral-800 cursor-pointer"
+            className="p-1 rounded bg-neutral-950 border border-neutral-800 text-neutral-500 hover:text-white transition-colors hover:bg-neutral-800 cursor-pointer"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3 h-3" />
           </button>
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-xs font-semibold bg-neutral-800 hover:bg-red-950/30 hover:border-red-900/40 hover:text-red-400 px-4 py-2.5 rounded border border-neutral-700 transition-all text-neutral-300 cursor-pointer"
+            className="flex items-center gap-1 text-[11px] font-semibold bg-neutral-800 hover:bg-red-950/30 hover:border-red-900/45 hover:text-red-400 px-2.5 py-1 rounded border border-neutral-700 transition-all text-neutral-400 cursor-pointer"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-3 h-3" />
             Sair
           </button>
         </div>
@@ -1420,167 +1467,112 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
         </section>
         </>
         ) : showEmailConfig ? (
-          /* Email Configuration & Notification Audit Workspace */
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 space-y-8 font-sans max-w-5xl mx-auto animate-fade-in">
+          <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4 space-y-4 font-sans max-w-4xl mx-auto animate-fade-in">
             {/* Header section with setup status */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-neutral-800">
+            <div className="flex justify-between items-center pb-3 border-b border-neutral-800">
               <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-brand-orange" />
-                  Configuração de Alertas por E-mail
+                <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-brand-orange" />
+                  Alertas por E-mail
                 </h2>
-                <p className="text-xs text-neutral-400 mt-1">
-                  Receba avisos instantâneos em seu e-mail pessoal toda vez que um novo visitante entrar ou interagir com o site.
+                <p className="text-[11px] text-neutral-400">
+                  Receba avisos instantâneos sempre que novos visitantes interagirem com o site.
                 </p>
               </div>
               
               <button
                 onClick={() => setShowEmailConfig(false)}
-                className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded text-xs font-semibold border border-neutral-700 transition-colors"
+                className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white rounded text-xs font-semibold border border-neutral-700 transition-colors cursor-pointer"
               >
-                Voltar para o Chat
+                Voltar
               </button>
             </div>
 
-            {/* Status Alert Banner */}
-            {import.meta.env.VITE_EMAILJS_SERVICE_ID && import.meta.env.VITE_EMAILJS_TEMPLATE_ID && import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-4 flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-emerald-400">Serviço de Alertas de Tráfego ATIVO</h4>
-                  <p className="text-xs text-neutral-300 leading-relaxed">
-                    Sua integração com o <strong>EmailJS</strong> está configurada corretamente! O sistema enviará notificações reais para <strong>{import.meta.env.VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL || 'mktesquadrijampa@gmail.com'}</strong> sempre que um visitante entrar ou registrar o nome.
-                  </p>
+            {/* Status Alert Banner & Test Box (Compact Row) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Left Column: Status / Credentials check */}
+              <div className="space-y-3 bg-neutral-950 p-3.5 rounded border border-neutral-850">
+                <div className="flex items-center gap-2">
+                  {import.meta.env.VITE_EMAILJS_SERVICE_ID && import.meta.env.VITE_EMAILJS_TEMPLATE_ID && import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      <span className="text-xs font-bold text-emerald-400">Serviço Ativo (EmailJS)</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4 text-amber-500 animate-pulse" />
+                      <span className="text-xs font-bold text-amber-400">Modo de Simulação</span>
+                    </>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-amber-400">Modo de Simulação Ativo (Pendente de Chaves)</h4>
-                  <p className="text-xs text-neutral-300 leading-relaxed">
-                    As variáveis de ambiente do EmailJS não foram inseridas no arquivo <code>.env</code>. Para receber e-mails reais, siga o passo a passo abaixo. 
-                    Enquanto isso, <strong>o sistema simula o envio com sucesso localmente</strong> para que você possa testar o fluxo no histórico abaixo!
-                  </p>
-                </div>
-              </div>
-            )}
 
-            {/* Interactive Section: Guide and Live Test */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left Column: Quick Step-by-Step Guide */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                    🛠️ Como Ativar E-mails Reais em 3 Passos
-                  </h3>
-                  
-                  <div className="space-y-4 text-xs text-neutral-300">
-                    <div className="flex gap-3">
-                      <span className="w-6 h-6 rounded bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center font-bold font-mono shrink-0">1</span>
-                      <div className="space-y-1.5">
-                        <h5 className="font-semibold text-white">Crie uma conta gratuita no EmailJS</h5>
-                        <p className="leading-relaxed text-neutral-400">
-                          Acesse <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline inline-flex items-center gap-1">emailjs.com <ExternalLink className="w-3 h-3" /></a> e cadastre-se. O plano gratuito permite até 200 e-mails por mês.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="w-6 h-6 rounded bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center font-bold font-mono shrink-0">2</span>
-                      <div className="space-y-1.5">
-                        <h5 className="font-semibold text-white">Configure o Serviço e Modelo</h5>
-                        <p className="leading-relaxed text-neutral-400">
-                          Adicione um serviço de email (como o Gmail) e crie um <strong>Email Template</strong> com as seguintes variáveis em chaves duplas:
-                        </p>
-                        <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850 font-mono text-[10px] text-brand-orange space-y-1">
-                          <div>• Nome do Visitante: <code className="text-neutral-300">{"{{visitor_name}}"}</code></div>
-                          <div>• Dispositivo: <code className="text-neutral-300">{"{{device}}"}</code></div>
-                          <div>• Origem: <code className="text-neutral-300">{"{{referrer}}"}</code></div>
-                          <div>• Páginas: <code className="text-neutral-300">{"{{pages_visited}}"}</code></div>
-                          <div>• Link Direto do Chat: <code className="text-neutral-300">{"{{dashboard_url}}"}</code></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="w-6 h-6 rounded bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center font-bold font-mono shrink-0">3</span>
-                      <div className="space-y-1.5">
-                        <h5 className="font-semibold text-white">Insira as Chaves nas Configurações</h5>
-                        <p className="leading-relaxed text-neutral-400">
-                          Adicione as seguintes chaves de acesso no arquivo <code>.env</code> do seu projeto:
-                        </p>
-                        <div className="bg-neutral-950 p-2.5 rounded border border-neutral-850 font-mono text-[10px] text-neutral-400 space-y-1">
-                          <div>VITE_EMAILJS_SERVICE_ID="<span className="text-emerald-400">seu_service_id</span>"</div>
-                          <div>VITE_EMAILJS_TEMPLATE_ID="<span className="text-emerald-400">seu_template_id</span>"</div>
-                          <div>VITE_EMAILJS_PUBLIC_KEY="<span className="text-emerald-400">sua_public_key</span>"</div>
-                          <div>VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL="<span className="text-emerald-400">seu_email_para_receber_alertas</span>"</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Interactive Test Console */}
-              <div className="lg:col-span-5 bg-neutral-950 p-5 rounded border border-neutral-850 space-y-4">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                  🚀 Console de Teste de Alertas
-                </h3>
-                <p className="text-xs text-neutral-400 leading-relaxed">
-                  Dispare um evento de entrada simulada para validar sua integração. Se as chaves reais estiverem configuradas, o e-mail chegará instantaneamente!
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  {import.meta.env.VITE_EMAILJS_SERVICE_ID && import.meta.env.VITE_EMAILJS_TEMPLATE_ID && import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? (
+                    <span>Notificações reais configuradas para enviar ao destinatário definido nas variáveis de ambiente.</span>
+                  ) : (
+                    <span>Pendente de variáveis <code>.env</code>. Para receber e-mails reais, cadastre-se no <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline font-semibold">EmailJS</a> e configure as chaves.</span>
+                  )}
                 </p>
 
-                <div className="pt-2">
-                  <button
-                    disabled={isSendingTestEmail}
-                    onClick={handleSendTestEmail}
-                    className="w-full py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold rounded text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {isSendingTestEmail ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Disparando Alerta...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Disparar E-mail de Teste
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {testEmailResult && (
-                  <div className={`p-3 rounded text-xs border ${
-                    testEmailResult.success 
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                  } animate-fade-in`}>
-                    {testEmailResult.message}
+                <div className="pt-1.5 border-t border-neutral-850 space-y-1 text-[10px] text-neutral-500">
+                  <div className="flex justify-between">
+                    <span>Destinatário:</span>
+                    <span className="font-mono text-brand-orange font-semibold">{import.meta.env.VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL || 'mktesquadrijampa@gmail.com'}</span>
                   </div>
-                )}
-
-                <div className="bg-neutral-900/40 p-3.5 rounded border border-neutral-800 text-[11px] text-neutral-400 space-y-1">
-                  <div className="font-semibold text-white">Configuração Atual Detectada:</div>
                   <div className="flex justify-between">
                     <span>ID do Serviço:</span>
-                    <span className="font-mono text-[10px] text-neutral-300">{import.meta.env.VITE_EMAILJS_SERVICE_ID ? 'Configurado ✓' : 'Ausente ✗'}</span>
+                    <span className="font-mono">{import.meta.env.VITE_EMAILJS_SERVICE_ID ? 'Configurado ✓' : 'Pendente (Simulado) ✗'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>ID do Modelo:</span>
-                    <span className="font-mono text-[10px] text-neutral-300">{import.meta.env.VITE_EMAILJS_TEMPLATE_ID ? 'Configurado ✓' : 'Ausente ✗'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Chave Pública:</span>
-                    <span className="font-mono text-[10px] text-neutral-300">{import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? 'Configurada ✓' : 'Ausente ✗'}</span>
-                  </div>
-                  <div className="flex justify-between pt-1 border-t border-neutral-805">
-                    <span>Destinatário:</span>
-                    <span className="font-mono text-[10px] text-brand-orange font-semibold">{import.meta.env.VITE_EMAILJS_NOTIFICATION_RECIPIENT_EMAIL || 'mktesquadrijampa@gmail.com'}</span>
+                    <span className="font-mono">{import.meta.env.VITE_EMAILJS_TEMPLATE_ID ? 'Configurado ✓' : 'Pendente (Simulado) ✗'}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Right Column: Console de Teste */}
+              <div className="space-y-3 bg-neutral-950 p-3.5 rounded border border-neutral-850 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                    🚀 Testar Alertas
+                  </h3>
+                  <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">
+                    Dispare uma notificação simulada para verificar se o e-mail está chegando e testar a dinâmica de logs.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    disabled={isSendingTestEmail}
+                    onClick={handleSendTestEmail}
+                    className="w-full py-1.5 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold rounded text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingTestEmail ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Disparando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        Disparar Alerta de Teste
+                      </>
+                    )}
+                  </button>
+
+                  {testEmailResult && (
+                    <div className={`p-2 rounded text-[10px] border ${
+                      testEmailResult.success 
+                        ? 'bg-emerald-500/10 border-emerald-500/15 text-emerald-400' 
+                        : 'bg-amber-500/10 border-amber-500/15 text-amber-400'
+                    } animate-fade-in`}>
+                      {testEmailResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
 
             {/* Audit Logs History Section */}
@@ -1661,246 +1653,473 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 min-h-0 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden font-sans h-[calc(100vh-210px)] md:h-[calc(100vh-160px)] lg:h-[calc(100vh-135px)]">
             
             {/* Left Column: Sessions List */}
-            <div className={`lg:col-span-3 border-r border-neutral-800 flex flex-col h-full min-h-0 bg-neutral-900/60 ${selectedSessionId ? 'hidden lg:flex' : 'flex'}`}>
-              <div className="p-4 border-b border-neutral-800 space-y-3">
+            <div className={`lg:col-span-3 border-r border-neutral-800 flex flex-col h-full min-h-0 bg-[#0b141a] ${selectedSessionId ? 'hidden lg:flex' : 'flex'}`}>
+              
+              {/* WhatsApp-Style Left Column Header */}
+              <div className="px-3 py-2 border-b border-neutral-800 space-y-2 bg-[#0b141a]">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-ping shrink-0"></span>
-                    Visitantes ({chatSessions.filter(s => s.online).length} Online)
-                  </h3>
+                  <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+                    Conversas
+                    <span className="text-[9px] bg-brand-orange/20 text-brand-orange font-mono px-1 py-0.2 rounded-full font-bold uppercase tracking-wider">
+                      {chatSessions.filter(s => s.online).length} On
+                    </span>
+                  </h2>
+
+                  <div className="flex items-center gap-2.5 text-neutral-300">
+                    {/* Camera simulation button */}
+                    <button 
+                      onClick={() => {
+                        chatManager.triggerSimulatedVisitor();
+                        setChatSessions(chatManager.getSessions());
+                      }}
+                      title="Disparar visita simulada rápida"
+                      className="hover:text-white p-1 hover:bg-neutral-800/40 rounded transition-all cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-neutral-300" />
+                    </button>
+
+                    {/* Plus button inside circular emerald bubble */}
+                    <button 
+                      onClick={() => {
+                        if (window.confirm('Deseja iniciar um visitante simulado para testar o atendimento?')) {
+                          chatManager.triggerSimulatedVisitor();
+                          setChatSessions(chatManager.getSessions());
+                        }
+                      }}
+                      title="Simular Novo Cliente"
+                      className="w-6 h-6 rounded-full bg-[#00a884] text-neutral-950 flex items-center justify-center hover:bg-[#008f72] hover:scale-105 active:scale-95 transition-all cursor-pointer shadow"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-neutral-950 stroke-[3px]" />
+                    </button>
+
+                    {/* Options menu */}
+                    <div className="relative group">
+                      <button className="hover:text-white p-1 hover:bg-neutral-800/40 rounded transition-all cursor-pointer">
+                        <MoreVertical className="w-4 h-4 text-neutral-300" />
+                      </button>
+                      <div className="absolute right-0 top-6 w-48 bg-[#1f2c34] border border-neutral-800 rounded shadow-xl py-1 hidden group-hover:block z-50 text-xs">
+                        <button
+                          onClick={handleResetData}
+                          className="w-full text-left px-3 py-1.5 text-neutral-200 hover:bg-[#2a3942] flex items-center gap-2 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3 text-brand-orange" />
+                          Redefinir Histórico
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowEmailConfig(true);
+                            setShowYouProfile(false);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-neutral-200 hover:bg-[#2a3942] flex items-center gap-2 cursor-pointer"
+                        >
+                          <Mail className="w-3 h-3 text-brand-orange" />
+                          Alertas por E-mail
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveTab('metrics');
+                            setShowYouProfile(false);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-neutral-200 hover:bg-[#2a3942] flex items-center gap-2 cursor-pointer"
+                        >
+                          <BarChart3 className="w-3 h-3 text-brand-orange" />
+                          Ver Painel de Métricas
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Sub-tabs: Active vs Archived */}
-                <div className="flex gap-2 border-b border-neutral-800 pb-1.5 pt-1 text-[11px] font-semibold text-white">
+                {/* Search box ("Pergunte à Meta AI ou pesquise") */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1.5 w-3.5 h-3.5 text-neutral-500" />
+                  <input
+                    type="text"
+                    placeholder="Pergunte à Meta AI ou pesquise"
+                    value={chatSearchTerm}
+                    onChange={(e) => setChatSearchTerm(e.target.value)}
+                    className="w-full bg-[#202c33] border border-transparent rounded-full pl-8 pr-3 py-1 text-[11px] text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-[#00a884] focus:bg-[#202c33] transition-all"
+                  />
+                </div>
+
+                {/* Horizontal scrolling filters exactly like WhatsApp */}
+                <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-0.5 -mx-1 px-1 whitespace-nowrap">
                   <button
-                    onClick={() => setCurrentSubTab('active')}
-                    className={`flex-1 pb-1.5 border-b-2 text-center transition-colors cursor-pointer ${
-                      currentSubTab === 'active' 
-                        ? 'border-brand-orange text-white font-bold' 
-                        : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                    onClick={() => {
+                      setChatStatusFilter('all');
+                      setCurrentSubTab('active');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] transition-all font-semibold cursor-pointer flex-shrink-0 ${
+                      chatStatusFilter === 'all' && currentSubTab === 'active'
+                        ? 'bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/30'
+                        : 'bg-[#202c33] text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
-                    Ativos ({chatSessions.filter(s => !s.archived).length})
+                    Todas
                   </button>
                   <button
-                    onClick={() => setCurrentSubTab('archived')}
-                    className={`flex-1 pb-1.5 border-b-2 text-center transition-colors cursor-pointer ${
-                      currentSubTab === 'archived' 
-                        ? 'border-brand-orange text-white font-bold' 
-                        : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                    onClick={() => {
+                      setChatStatusFilter('unread' as any);
+                      setCurrentSubTab('active');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] transition-all font-semibold cursor-pointer flex-shrink-0 flex items-center gap-1 ${
+                      chatStatusFilter === ('unread' as any)
+                        ? 'bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/30'
+                        : 'bg-[#202c33] text-neutral-400 hover:text-neutral-200'
+                    }`}
+                  >
+                    Não lidas
+                    {chatSessions.filter(s => s.messages.filter(m => m.sender === 'visitor' && !m.read).length > 0).length > 0 && (
+                      <span className="bg-[#00a884] text-neutral-950 font-extrabold px-1 rounded text-[8px]">
+                        {chatSessions.filter(s => s.messages.filter(m => m.sender === 'visitor' && !m.read).length > 0).length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChatStatusFilter('online');
+                      setCurrentSubTab('active');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] transition-all font-semibold cursor-pointer flex-shrink-0 ${
+                      chatStatusFilter === 'online'
+                        ? 'bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/30'
+                        : 'bg-[#202c33] text-neutral-400 hover:text-neutral-200'
+                    }`}
+                  >
+                    Online ({chatSessions.filter(s => s.online).length})
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChatStatusFilter('with_messages');
+                      setCurrentSubTab('active');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] transition-all font-semibold cursor-pointer flex-shrink-0 ${
+                      chatStatusFilter === 'with_messages'
+                        ? 'bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/30'
+                        : 'bg-[#202c33] text-neutral-400 hover:text-neutral-200'
+                    }`}
+                  >
+                    Conversas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentSubTab('archived');
+                      setChatStatusFilter('all');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] transition-all font-semibold cursor-pointer flex-shrink-0 ${
+                      currentSubTab === 'archived'
+                        ? 'bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/30'
+                        : 'bg-[#202c33] text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
                     Arquivados ({chatSessions.filter(s => s.archived).length})
                   </button>
                 </div>
-                
-                {/* Search filter for sessions */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
-                  <input
-                    type="text"
-                    placeholder="Filtrar por nome..."
-                    value={chatSearchTerm}
-                    onChange={(e) => setChatSearchTerm(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded pl-9 pr-4 py-2 text-xs text-neutral-300 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
-                  />
-                </div>
 
-                {/* Sorting & Status Filters */}
-                <div className="flex flex-col gap-2 pt-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] text-neutral-500 font-semibold font-mono uppercase tracking-wider">
-                      Filtrar Status:
-                    </span>
-                    <select
-                      value={chatStatusFilter}
-                      onChange={(e) => setChatStatusFilter(e.target.value as any)}
-                      className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[10px] font-semibold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange text-right"
-                    >
-                      <option value="all">Todos os Visitantes</option>
-                      <option value="online">Online (Ativo)</option>
-                      <option value="offline">Offline</option>
-                      <option value="with_messages">Com Conversa</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] text-neutral-500 font-semibold font-mono uppercase tracking-wider">
-                      Ordenar por:
-                    </span>
-                    <select
-                      value={chatSortBy}
-                      onChange={(e) => setChatSortBy(e.target.value as any)}
-                      className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[10px] font-semibold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-brand-orange text-right"
-                    >
-                      <option value="recent">Mais Recente (Atividade)</option>
-                      <option value="online_time">Tempo no Site</option>
-                      <option value="alphabetical">Nome (A-Z)</option>
-                      <option value="unread">Mensagens não lidas</option>
-                    </select>
-                  </div>
+                {/* Sub-header sort & filter control info */}
+                <div className="flex items-center justify-between gap-2 pt-1 text-[9px] text-neutral-500 border-t border-neutral-800/30">
+                  <span className="font-mono uppercase tracking-wider">Ordenação ativa:</span>
+                  <select
+                    value={chatSortBy}
+                    onChange={(e) => setChatSortBy(e.target.value as any)}
+                    className="bg-transparent border-none text-neutral-400 font-semibold cursor-pointer focus:outline-none"
+                  >
+                    <option value="recent">Atividade recente</option>
+                    <option value="online_time">Tempo no site</option>
+                    <option value="alphabetical">Nome (A-Z)</option>
+                    <option value="unread">Não lidas primeiro</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-neutral-800/40">
-                {chatSessions.filter(s => {
-                  const term = chatSearchTerm.toLowerCase();
-                  const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
-                  const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
-                  const matchesStatus = chatStatusFilter === 'all' 
-                    ? true 
-                    : chatStatusFilter === 'online' 
-                      ? s.online === true 
-                      : chatStatusFilter === 'offline' 
-                        ? s.online !== true 
-                        : s.messages.length > 0;
-                  return matchesSearch && matchesTab && matchesStatus;
-                }).length === 0 ? (
+              {/* Scrollable Conversations List */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#0b141a]">
+                
+                {/* Archived conversations row exactly like WhatsApp */}
+                {currentSubTab === 'active' && chatSessions.filter(s => s.archived).length > 0 && (
+                  <button
+                    onClick={() => setCurrentSubTab('archived')}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-[#202c33]/30 border-b border-neutral-800/30 text-neutral-300 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <Archive className="w-5 h-5 text-[#00a884] group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-semibold text-white">Arquivadas</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-[#00a884]">
+                      {chatSessions.filter(s => s.archived).length}
+                    </span>
+                  </button>
+                )}
+
+                {/* Back button when inside archived view */}
+                {currentSubTab === 'archived' && (
+                  <button
+                    onClick={() => setCurrentSubTab('active')}
+                    className="w-full px-4 py-3 bg-[#00a884]/5 hover:bg-[#00a884]/10 text-xs text-[#00a884] font-bold flex items-center gap-2 border-b border-neutral-800/50 transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4 stroke-[2.5px]" />
+                    Voltar para Conversas Ativas
+                  </button>
+                )}
+
+                {filteredSessions.length === 0 ? (
                   <div className="p-8 text-center text-xs text-neutral-500 space-y-2">
                     <User className="w-8 h-8 text-neutral-600 mx-auto" />
-                    <p>Nenhum visitante localizado.</p>
+                    <p>Nenhuma conversa localizada.</p>
                     {currentSubTab === 'active' && (
-                      <p className="text-[10px] text-neutral-600">Utilize o botão "Simular Cliente" acima para criar um lead de teste!</p>
+                      <p className="text-[10px] text-neutral-600">Simule um cliente de teste para começar!</p>
                     )}
                   </div>
                 ) : (
-                  chatSessions
-                    .filter(s => {
-                      const term = chatSearchTerm.toLowerCase();
-                      const matchesSearch = s.visitorName.toLowerCase().includes(term) || (s.customName || '').toLowerCase().includes(term);
-                      const matchesTab = currentSubTab === 'archived' ? s.archived === true : (!s.archived);
-                      const matchesStatus = chatStatusFilter === 'all' 
-                        ? true 
-                        : chatStatusFilter === 'online' 
-                          ? s.online === true 
-                          : chatStatusFilter === 'offline' 
-                            ? s.online !== true 
-                            : s.messages.length > 0;
-                      return matchesSearch && matchesTab && matchesStatus;
-                    })
-                    .slice()
-                    .sort((a, b) => {
-                      if (chatSortBy === 'online_time') {
-                        // Longest online (earlier startedAt) first
-                        return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
-                      }
-                      if (chatSortBy === 'alphabetical') {
-                        const nameA = (a.customName || a.visitorName).toLowerCase();
-                        const nameB = (b.customName || b.visitorName).toLowerCase();
-                        return nameA.localeCompare(nameB);
-                      }
-                      if (chatSortBy === 'unread') {
-                        const unreadA = a.messages.filter(m => m.sender === 'visitor' && !m.read).length;
-                        const unreadB = b.messages.filter(m => m.sender === 'visitor' && !m.read).length;
-                        return unreadB - unreadA;
-                      }
-                      // Default: recent activity
-                      return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
-                    })
-                    .map((s) => {
-                      const isActive = s.sessionId === selectedSessionId;
-                      const unreadMessages = s.messages.filter(m => m.sender === 'visitor' && !m.read);
-                      const isOnline = s.online;
-                      const lastMsg = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+                  filteredSessions.map((s) => {
+                    const isActive = s.sessionId === selectedSessionId;
+                    const unreadMessages = s.messages.filter(m => m.sender === 'visitor' && !m.read);
+                    const isOnline = s.online;
+                    const lastMsg = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
 
-                      return (
-                        <button
-                          key={s.sessionId}
-                          onClick={() => {
-                            setSelectedSessionId(s.sessionId);
-                            chatManager.markAsRead(s.sessionId, 'admin');
-                            setShowDossierOnMobile(false);
-                          }}
-                          className={`w-full text-left p-4 transition-all flex items-start gap-3 border-l-2 cursor-pointer ${
-                            isActive 
-                              ? 'bg-neutral-800/50 border-brand-orange text-white' 
-                              : unreadMessages.length > 0
-                                ? 'bg-[#00a884]/5 hover:bg-[#00a884]/10 border-l-[#00a884] text-white'
-                                : 'border-transparent text-neutral-300 hover:bg-neutral-800/30'
-                          }`}
-                        >
-                          {/* Status Badge */}
-                          <div className="relative shrink-0 mt-0.5">
-                            <div className={`w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold border border-neutral-700 ${isActive ? 'text-brand-orange' : 'text-neutral-400'}`}>
-                              {s.visitorName.substring(0, 2).toUpperCase()}
-                            </div>
-                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-neutral-900 ${
-                              isOnline ? 'bg-emerald-500' : 'bg-neutral-500'
-                            }`} title={isOnline ? 'Online' : 'Offline'}></span>
+                    // Stable unique color background for initials avatar
+                    const getAvatarBg = (id: string) => {
+                      const colors = [
+                        'bg-blue-600/20 text-blue-300 border-blue-500/15',
+                        'bg-purple-600/20 text-purple-300 border-purple-500/15',
+                        'bg-pink-600/20 text-pink-300 border-pink-500/15',
+                        'bg-amber-600/20 text-amber-300 border-amber-500/15',
+                        'bg-indigo-600/20 text-indigo-300 border-indigo-500/15',
+                        'bg-rose-600/20 text-rose-300 border-rose-500/15',
+                        'bg-cyan-600/20 text-cyan-300 border-cyan-500/15',
+                      ];
+                      let hash = 0;
+                      for (let i = 0; i < id.length; i++) {
+                        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+                      }
+                      return colors[Math.abs(hash) % colors.length];
+                    };
+
+                    const avatarBg = getAvatarBg(s.sessionId);
+
+                    return (
+                      <button
+                        key={s.sessionId}
+                        onClick={() => {
+                          setSelectedSessionId(s.sessionId);
+                          chatManager.markAsRead(s.sessionId, 'admin');
+                          setShowDossierOnMobile(false);
+                          setShowYouProfile(false);
+                        }}
+                        className={`w-full text-left p-3.5 transition-all flex items-start gap-3 border-b border-neutral-900 cursor-pointer ${
+                          isActive 
+                            ? 'bg-[#2a3942]/60 text-white' 
+                            : unreadMessages.length > 0
+                              ? 'bg-[#00a884]/5 hover:bg-[#00a884]/10 text-white animate-pulse-subtle'
+                              : 'text-neutral-300 hover:bg-[#202c33]/30'
+                        }`}
+                      >
+                        {/* Left Side: Avatar Circle */}
+                        <div className="relative shrink-0 mt-0.5">
+                          <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold border ${avatarBg}`}>
+                            {s.visitorName.substring(0, 2).toUpperCase()}
+                          </div>
+                          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0b141a] ${
+                            isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-500'
+                          }`} title={isOnline ? 'Online' : 'Offline'}></span>
+                        </div>
+
+                        {/* Middle: Content */}
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex justify-between items-baseline gap-1">
+                            <span className={`font-semibold text-sm truncate block ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-white'}`}>
+                              {s.customName || s.visitorName}
+                              {s.customName && <span className="text-[9px] text-brand-orange ml-1.5 font-normal">(Editado)</span>}
+                              {s.isRegistered && s.visitorCode && (
+                                <span className="text-[9px] text-neutral-500 ml-1.5 font-normal">({s.visitorCode})</span>
+                              )}
+                            </span>
+
+                            {/* Message Time formatted */}
+                            <span className={`text-[10px] font-medium shrink-0 ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884]' : 'text-neutral-500'}`}>
+                              {(() => {
+                                const targetTime = lastMsg ? lastMsg.timestamp : s.lastActive;
+                                try {
+                                  return new Date(targetTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                } catch (e) {
+                                  return '';
+                                }
+                              })()}
+                            </span>
                           </div>
 
-                          {/* Meta Info */}
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex justify-between items-baseline gap-1">
-                              <span className={`font-semibold text-xs truncate block ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-white'}`}>
-                                {s.customName || s.visitorName}
-                                {s.customName && <span className="text-[9px] text-brand-orange ml-1.5 font-normal">(Editado)</span>}
-                                {s.isRegistered && s.visitorCode && (
-                                  <span className="text-[9px] text-neutral-500 ml-1.5 font-normal">({s.visitorCode})</span>
-                                )}
-                              </span>
-                              {lastMsg && (
-                                <span className={`text-[9px] font-mono shrink-0 ${unreadMessages.length > 0 && !isActive ? 'text-[#00a884] font-bold' : 'text-neutral-500'}`}>
-                                  {new Date(lastMsg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                          {/* Last message preview */}
+                          <div className="flex items-center justify-between gap-1.5">
+                            <p className={`text-xs truncate flex-1 ${unreadMessages.length > 0 && !isActive ? 'text-neutral-100 font-semibold' : 'text-neutral-400'}`}>
+                              {/* Blue checkmarks for messages sent by us */}
+                              {lastMsg && (lastMsg.sender === 'admin' || lastMsg.sender === 'system') && (
+                                <span className="text-[#53bdeb] font-bold mr-1">✓✓</span>
                               )}
-                            </div>
-
-                            {/* Last message preview */}
-                            <p className={`text-[11px] truncate ${unreadMessages.length > 0 && !isActive ? 'text-neutral-100 font-semibold' : 'text-neutral-400'}`}>
-                              {lastMsg ? lastMsg.text : 'Sem mensagens.'}
+                              {lastMsg ? lastMsg.text : (
+                                s.pagesPassed.length > 0 
+                                  ? `📍 No site: ${s.pagesPassed[s.pagesPassed.length - 1]}` 
+                                  : 'Acesso iniciado.'
+                              )}
                             </p>
 
-                            {/* Badges */}
-                            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[9px] font-mono text-neutral-500">
-                              <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-brand-orange">
-                                {s.device}
+                            {/* Unread dot count badge */}
+                            {unreadMessages.length > 0 && (
+                              <span className="min-w-5 h-5 rounded-full bg-[#00a884] text-neutral-950 text-[10px] font-extrabold flex items-center justify-center px-1.5 shrink-0 shadow-sm animate-bounce">
+                                {unreadMessages.length}
                               </span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-semibold ${s.isNewUser ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/20' : 'bg-blue-950/40 text-blue-400 border border-blue-900/20'}`}>
-                                {s.isNewUser ? 'Novo' : 'Retorno'}
-                              </span>
-                              {s.city && (
-                                <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-neutral-300">
-                                  📍 {s.city}{s.neighborhood ? ` / ${s.neighborhood}` : ''}
-                                </span>
-                              )}
-                              {s.referrer && (
-                                <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-amber-500 font-semibold" title={`Origem: ${s.referrer}`}>
-                                  🔗 {s.referrer}
-                                </span>
-                              )}
-                              <span className="bg-neutral-950 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider text-neutral-400" title="Hora de Entrada">
-                                🕒 {(() => {
-                                  try {
-                                    return new Date(s.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                                  } catch (e) {
-                                    return '';
-                                  }
-                                })()}
-                              </span>
-                            </div>
+                            )}
+
+                            {/* Pinned icon on online sessions */}
+                            {isOnline && !unreadMessages.length && (
+                              <Pin className="w-3 h-3 text-neutral-600 rotate-45 shrink-0" />
+                            )}
                           </div>
 
-                          {/* Unread Message Dot (WhatsApp style green badge) */}
-                          {unreadMessages.length > 0 && (
-                            <span className="w-5 h-5 rounded-full bg-[#00a884] text-neutral-950 text-[10px] font-extrabold flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                              {unreadMessages.length}
+                          {/* Subtle visitor tags under message preview */}
+                          <div className="flex flex-wrap items-center gap-1 pt-1.5 text-[8px] font-mono text-neutral-500">
+                            <span className="bg-[#202c33]/40 border border-neutral-800/40 px-1 py-0.2 rounded text-brand-orange uppercase">
+                              {s.device}
                             </span>
-                          )}
-                        </button>
-                      );
-                    })
+                            <span className={`px-1 py-0.2 rounded font-semibold ${s.isNewUser ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/10' : 'bg-blue-950/20 text-blue-400 border border-blue-900/10'}`}>
+                              {s.isNewUser ? 'Novo' : 'Retorno'}
+                            </span>
+                            {s.city && (
+                              <span className="bg-[#202c33]/40 border border-neutral-800/40 px-1 py-0.2 rounded text-neutral-300 truncate max-w-[80px]">
+                                📍 {s.city}
+                              </span>
+                            )}
+                            {s.referrer && (
+                              <span className="bg-[#202c33]/40 border border-neutral-800/40 px-1 py-0.2 rounded text-amber-500 font-semibold truncate max-w-[70px]" title={`Origem: ${s.referrer}`}>
+                                🔗 {s.referrer}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
 
             {/* Right Column: Chat Workspace */}
-            <div className={`lg:col-span-9 flex flex-col h-full min-h-0 bg-neutral-950/20 ${selectedSessionId ? 'flex' : 'hidden lg:flex'}`}>
-              {(() => {
-                const activeSession = chatSessions.find(s => s.sessionId === selectedSessionId) || null;
-                if (!activeSession) {
-                  const candidates = chatSessions.filter(s => !s.archived);
-                  return (
+            <div className={`lg:col-span-9 flex flex-col h-full min-h-0 bg-neutral-950/20 ${selectedSessionId || showYouProfile ? 'flex' : 'hidden lg:flex'}`}>
+              {showYouProfile ? (
+                <div className="flex flex-col h-full bg-[#0b141a] custom-scrollbar overflow-y-auto p-6 space-y-6">
+                  {/* Profile Header */}
+                  <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <ChevronLeft 
+                        className="w-5 h-5 text-[#00a884] lg:hidden cursor-pointer" 
+                        onClick={() => setShowYouProfile(false)} 
+                      />
+                      Meu Perfil (Você)
+                    </h2>
+                    <span className="bg-[#00a884]/10 border border-[#00a884]/25 text-[#00a884] text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-[#00a884] rounded-full animate-pulse"></span>
+                      Online
+                    </span>
+                  </div>
+
+                  {/* Profile Card */}
+                  <div className="bg-neutral-900/60 rounded-xl border border-neutral-850 p-6 flex flex-col items-center text-center space-y-4">
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-brand-orange to-amber-500 flex items-center justify-center text-3xl font-bold text-white shadow-xl">
+                        A
+                      </div>
+                      <span className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-[#0b141a] rounded-full animate-pulse"></span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <h3 className="text-base font-bold text-white">Atendente Esquadrijampa</h3>
+                      <p className="text-xs text-neutral-400">mktesquadrijampa@gmail.com</p>
+                    </div>
+
+                    <div className="pt-2 w-full max-w-xs grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-850">
+                        <p className="text-neutral-500 font-medium">Sessões Ativas</p>
+                        <p className="text-lg font-bold text-white mt-1">{chatSessions.filter(s => s.online).length}</p>
+                      </div>
+                      <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-850">
+                        <p className="text-neutral-500 font-medium">Total de Leads</p>
+                        <p className="text-lg font-bold text-[#00a884] mt-1">{chatSessions.length}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Settings and Info List */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-neutral-500 font-mono uppercase tracking-wider">Configurações Rápidas</h4>
+                    
+                    <div className="bg-[#111b21] border border-neutral-800/60 rounded-xl divide-y divide-neutral-800/80 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setShowEmailConfig(true);
+                          setShowYouProfile(false);
+                        }}
+                        className="w-full flex items-center justify-between p-4 hover:bg-[#202c33]/40 text-left transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Mail className="w-4 h-4 text-[#00a884]" />
+                          <div>
+                            <p className="text-xs font-semibold text-white">Alertas de e-mail</p>
+                            <p className="text-[10px] text-neutral-500">Notificações em tempo real para novos leads</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-neutral-600" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveTab('metrics');
+                          setShowYouProfile(false);
+                        }}
+                        className="w-full flex items-center justify-between p-4 hover:bg-[#202c33]/40 text-left transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <BarChart3 className="w-4 h-4 text-[#00a884]" />
+                          <div>
+                            <p className="text-xs font-semibold text-white">Visualizar Métricas</p>
+                            <p className="text-[10px] text-neutral-500">Acessar dados de tráfego do site</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-neutral-600" />
+                      </button>
+
+                      <div className="p-4 text-xs space-y-2 text-neutral-400">
+                        <p className="flex justify-between">
+                          <span>Status da Conexão:</span>
+                          <span className="text-emerald-400 font-bold font-mono">ESTÁVEL</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Ambiente do Servidor:</span>
+                          <span className="text-neutral-500 font-mono">Cloud Run Container</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Licença de Uso:</span>
+                          <span className="text-brand-orange font-mono">Esquadrijampa VIP</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Logout Button */}
+                  <div className="pt-4 pb-20">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-white" />
+                      Sair da Conta (Logout)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                (() => {
+                  const activeSession = chatSessions.find(s => s.sessionId === selectedSessionId) || null;
+                  if (!activeSession) {
+                    const candidates = chatSessions.filter(s => !s.archived);
+                    return (
                     <div className="flex flex-col justify-center items-center p-8 h-full space-y-6 max-w-lg mx-auto overflow-y-auto custom-scrollbar w-full">
                       <div className="text-center space-y-2">
                         <div className="w-12 h-12 rounded-full bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center text-brand-orange mx-auto">
@@ -1978,18 +2197,18 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                 return (
                   <div className="flex flex-col h-full divide-y divide-neutral-800">
                     {/* Active Header */}
-                    <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-neutral-900/40">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-neutral-900/60 border-b border-neutral-800/80">
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
                         {/* Botão de Voltar para Mobile */}
                         <button
                           onClick={() => setSelectedSessionId(null)}
-                          className="lg:hidden flex items-center justify-center p-2 rounded bg-neutral-800 hover:bg-neutral-750 text-neutral-300 cursor-pointer border border-neutral-700/50 shrink-0"
+                          className="lg:hidden flex items-center justify-center p-1.5 rounded bg-neutral-800 hover:bg-neutral-750 text-neutral-300 cursor-pointer border border-neutral-700/50 shrink-0"
                           title="Voltar para lista de visitantes"
                         >
-                          <ChevronLeft className="w-4 h-4 text-brand-orange" />
+                          <ChevronLeft className="w-3.5 h-3.5 text-brand-orange" />
                         </button>
 
-                        <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="space-y-0.5 flex-1 min-w-0">
                         {editingNameSessionId === activeSession.sessionId ? (
                           <form 
                             onSubmit={(e) => {
@@ -2019,11 +2238,11 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                             </button>
                           </form>
                         ) : (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h2 className="text-xs font-bold text-white flex items-center gap-1.5">
                               {activeSession.customName || activeSession.visitorName}
                               {activeSession.visitorCode && activeSession.isRegistered && (
-                                <span className="text-xs text-neutral-500 font-normal">({activeSession.visitorCode})</span>
+                                <span className="text-[11px] text-neutral-500 font-normal">({activeSession.visitorCode})</span>
                               )}
                             </h2>
                             <button
@@ -2031,38 +2250,38 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                                 setEditingNameSessionId(activeSession.sessionId);
                                 setEditingNameValue(activeSession.customName || activeSession.visitorName);
                               }}
-                              className="text-neutral-500 hover:text-brand-orange p-1 transition-colors rounded hover:bg-neutral-800 cursor-pointer"
+                              className="text-neutral-500 hover:text-brand-orange p-0.5 transition-colors rounded hover:bg-neutral-800 cursor-pointer"
                               title="Renomear visitante"
                             >
-                              <Edit className="w-3.5 h-3.5" />
+                              <Edit className="w-3 h-3" />
                             </button>
 
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-mono tracking-wide ${
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[8px] font-mono tracking-wide ${
                               activeSession.online 
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
                                 : 'bg-neutral-800 text-neutral-400 border border-neutral-700/55'
                             }`}>
                               <span className={`w-1 h-1 rounded-full ${activeSession.online ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`}></span>
-                              {activeSession.online ? 'Online agora' : 'Offline'}
+                              {activeSession.online ? 'Online' : 'Offline'}
                             </span>
 
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono tracking-wide ${
+                            <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[8px] font-mono tracking-wide ${
                               activeSession.isNewUser
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
                                 : 'bg-blue-500/10 text-blue-400 border border-blue-500/15'
                             }`}>
-                              {activeSession.isNewUser ? 'Novo' : 'Recorrente'}
+                              {activeSession.isNewUser ? 'Novo' : 'Retorno'}
                             </span>
                           </div>
                         )}
 
-                        <p className="text-[10px] text-neutral-500 font-mono">
-                          ID: <span className="text-neutral-400 font-mono">{activeSession.sessionId}</span> • Origem: <span className="text-brand-orange font-semibold">{activeSession.referrer}</span> • Dispositivo: <span className="text-neutral-300 font-semibold">{activeSession.device}</span>
+                        <p className="text-[9px] text-neutral-500 font-mono">
+                          ID: <span className="text-neutral-400">{activeSession.sessionId.substring(0, 8)}...</span> • Origem: <span className="text-brand-orange font-semibold">{activeSession.referrer}</span> • Disp: <span className="text-neutral-300 font-semibold">{activeSession.device}</span>
                         </p>
                       </div>
                     </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         {/* Toggle Dossiê/Chat on mobile */}
                         <button
                           onClick={() => setShowDossierOnMobile(!showDossierOnMobile)}
@@ -2486,12 +2705,112 @@ export default function Dashboard({ onBackToHome }: DashboardProps) {
                     </div>
                   </div>
                 );
-              })()}
+              })()
+              )}
             </div>
 
           </div>
         )}
       </main>
+
+      {/* WhatsApp-Style Mobile Bottom Navigation Bar (matches native screenshot) */}
+      {!selectedSessionId && activeTab === 'chat' && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0b141a] border-t border-neutral-800/80 backdrop-blur-md px-2 py-2 flex justify-around items-center h-[65px] select-none shadow-2xl">
+          {/* Tab: Atualizações (Metrics) */}
+          <button
+            onClick={() => {
+              setActiveTab('metrics');
+              setShowYouProfile(false);
+            }}
+            className={`flex flex-col items-center justify-center w-16 transition-all active:scale-95 cursor-pointer ${
+              activeTab === 'metrics' && !showYouProfile ? 'text-[#00a884]' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <div className="relative p-1">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-1">Atualizações</span>
+          </button>
+
+          {/* Tab: Conversas (Chats) */}
+          <button
+            onClick={() => {
+              setActiveTab('chat');
+              setShowYouProfile(false);
+              setShowEmailConfig(false);
+            }}
+            className={`flex flex-col items-center justify-center w-16 transition-all active:scale-95 cursor-pointer ${
+              activeTab === 'chat' && !showYouProfile && !showEmailConfig ? 'text-[#00a884]' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <div className="relative p-1">
+              <MessageSquare className="w-5 h-5" />
+              {(() => {
+                const totalUnreadCount = chatSessions.reduce((acc, s) => acc + s.messages.filter(m => m.sender === 'visitor' && !m.read).length, 0);
+                return totalUnreadCount > 0 ? (
+                  <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#00a884] text-neutral-950 text-[9px] font-extrabold flex items-center justify-center px-1 shadow animate-pulse">
+                    {totalUnreadCount}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <span className="text-[10px] font-semibold mt-1">Conversas</span>
+          </button>
+
+          {/* Tab: Simular (Plus) */}
+          <button
+            onClick={() => {
+              setShowYouProfile(false);
+              if (window.confirm('Deseja iniciar um visitante simulado para testar o atendimento?')) {
+                chatManager.triggerSimulatedVisitor();
+                setChatSessions(chatManager.getSessions());
+              }
+            }}
+            className="flex flex-col items-center justify-center w-16 text-neutral-500 hover:text-neutral-300 transition-all active:scale-95 cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-full bg-[#00a884]/15 border border-[#00a884]/20 flex items-center justify-center text-[#00a884] -mt-2 shadow-md hover:bg-[#00a884]/25">
+              <Sparkles className="w-4.5 h-4.5 text-[#00a884]" />
+            </div>
+            <span className="text-[10px] font-semibold mt-1">Simular</span>
+          </button>
+
+          {/* Tab: Alertas (Email Config) */}
+          <button
+            onClick={() => {
+              setActiveTab('chat');
+              setShowEmailConfig(true);
+              setShowYouProfile(false);
+            }}
+            className={`flex flex-col items-center justify-center w-16 transition-all active:scale-95 cursor-pointer ${
+              showEmailConfig ? 'text-[#00a884]' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <div className="relative p-1">
+              <Mail className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-1">Alertas</span>
+          </button>
+
+          {/* Tab: Você (You) */}
+          <button
+            onClick={() => {
+              setShowYouProfile(true);
+              setShowEmailConfig(false);
+            }}
+            className={`flex flex-col items-center justify-center w-16 transition-all active:scale-95 cursor-pointer ${
+              showYouProfile ? 'text-[#00a884]' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <div className="relative">
+              <div className="w-5 h-5 rounded-full bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-neutral-400 border border-neutral-700">
+                AD
+              </div>
+              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[#00a884] border border-[#0b141a] animate-pulse"></span>
+            </div>
+            <span className="text-[10px] font-semibold mt-1">Você</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
